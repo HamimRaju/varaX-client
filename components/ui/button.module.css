@@ -1,0 +1,82 @@
+.button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.button:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--amber);
+  outline-offset: 3px;
+}
+
+.default {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  background: var(--emerald);
+  color: #fff;
+}
+
+.default:hover {
+  background: var(--emerald-deep);
+}
+
+.outline {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.outline:hover {
+  border-color: var(--emerald);
+  color: var(--emerald-deep);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.ghost:hover {
+  background: var(--surface-soft);
+}
+
+.default,
+.outline,
+.ghost {
+  font-size: 0.88rem;
+}
+
+.icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+}
+
+.icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button {
+    transition: none;
+  }
+}

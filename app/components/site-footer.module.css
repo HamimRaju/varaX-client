@@ -1,0 +1,238 @@
+.footer {
+  width: 100%;
+  padding: 1.5rem var(--site-gutter-x) 2.25rem;
+}
+
+.footerCard {
+  width: min(100%, var(--site-content-max));
+  margin-inline: auto;
+  border: 1px solid rgb(255 255 255 / 17%);
+  border-radius: 1.35rem;
+  padding: clamp(1.6rem, 3.5vw, 3rem) clamp(1.5rem, 4vw, 3.5rem) 1.1rem;
+  background:
+    radial-gradient(ellipse at 3% 0%, rgb(22 160 133 / 11%), transparent 32%),
+    linear-gradient(135deg, #172a3a, #101d2a 65%);
+  box-shadow: 0 18px 48px rgb(16 29 42 / 18%);
+  color: #f5f7f8;
+}
+
+.footerContent {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1.3fr) minmax(8rem, 0.8fr) minmax(9rem, 0.9fr) minmax(12rem, 1.1fr);
+  gap: clamp(1.5rem, 4vw, 3.75rem);
+  padding-bottom: 2rem;
+}
+
+.brandColumn,
+.linkColumn,
+.contactColumn {
+  min-width: 0;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-plus-jakarta), "Plus Jakarta Sans", sans-serif;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.065em;
+  line-height: 1;
+}
+
+.brandMark {
+  display: block;
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.brandMark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.brandX {
+  color: #34b99d;
+}
+
+.tagline {
+  margin: 0.55rem 0 0 0.35rem;
+  color: #f4f7f8;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.description {
+  max-width: 18rem;
+  margin: 0.8rem 0 1rem;
+  color: #b6c3ca;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+.linkColumn h2,
+.contactColumn h2 {
+  margin: 0 0 1rem;
+  color: #f5f7f8;
+  font-family: var(--font-plus-jakarta), "Plus Jakarta Sans", sans-serif;
+  font-size: 1rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.linkColumn ul,
+.contactColumn ul {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linkColumn a,
+.contactColumn a {
+  color: #b6c3ca;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  transition: color 150ms ease;
+}
+
+.linkColumn a:hover,
+.contactColumn a:hover {
+  color: #48c7aa;
+}
+
+.contactColumn li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+.contactColumn li svg {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  margin-top: 0.12rem;
+  color: #a9bac3;
+}
+
+.socialLinks {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.socialLink {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 8%);
+  color: #e8eef1;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.socialLink:hover {
+  transform: translateY(-2px);
+  background: #168f7b;
+  color: #ffffff;
+}
+
+.socialLink svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.footerBottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid rgb(255 255 255 / 13%);
+  padding-top: 1rem;
+  color: #aebdc5;
+  font-size: 0.82rem;
+}
+
+.footerBottom p {
+  margin: 0;
+}
+
+.heart {
+  color: #ed716d;
+  font-size: 0.95rem;
+}
+
+.backToTop {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #aebdc5;
+  transition: color 150ms ease;
+}
+
+.backToTop:hover {
+  color: #48c7aa;
+}
+
+.backToTop span {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  .footerContent {
+    grid-template-columns: minmax(12rem, 1.2fr) repeat(2, minmax(8rem, 0.8fr));
+    row-gap: 2rem;
+  }
+
+  .brandColumn {
+    grid-row: span 2;
+  }
+}
+
+@media (max-width: 620px) {
+  .footer {
+    padding-block: 1rem 1.25rem;
+  }
+
+  .footerCard {
+    border-radius: 1.1rem;
+    padding: 1.5rem 1.25rem 1rem;
+  }
+
+  .footerContent {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.75rem 1.25rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .brandColumn,
+  .contactColumn {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .linkColumn h2,
+  .contactColumn h2 {
+    margin-bottom: 0.8rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .footerCard {
+    padding-inline: 1rem;
+  }
+
+  .footerBottom {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+}

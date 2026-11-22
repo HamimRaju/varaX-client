@@ -1,0 +1,272 @@
+.carousel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  margin-inline: auto;
+}
+
+.viewport {
+  overflow: hidden;
+  padding: 1.8rem 0.45rem 0.65rem;
+}
+
+.track {
+  display: flex;
+  margin-left: -0.7rem;
+  touch-action: pan-y pinch-zoom;
+}
+
+.viewport .slide {
+  display: flex;
+  min-width: 0;
+  flex: 0 0 20%;
+  padding: 0.25rem 0 0.85rem 0.7rem;
+}
+
+.reviewCard {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 24rem;
+  flex-direction: column;
+  border: 1px solid rgb(22 160 133 / 16%);
+  border-radius: 2rem 2rem 1.6rem 1.6rem;
+  padding: 2.9rem 1.1rem 1.15rem;
+  background:
+    radial-gradient(ellipse at 48% 110%, rgb(22 160 133 / 5%), transparent 53%),
+    linear-gradient(
+      155deg,
+      #ffffff 8%,
+      color-mix(in srgb, #142735 2%, #ffffff) 63%,
+      color-mix(in srgb, #142735 4%, #ffffff) 130%
+    );
+  box-shadow:
+    0 12px 30px rgb(21 75 61 / 6%),
+    inset 0 1px 0 rgb(255 255 255 / 90%);
+  color: var(--midnight-navy);
+}
+
+.heartBadge {
+  position: absolute;
+  top: -1.55rem;
+  left: 50%;
+  display: grid;
+  width: 3.2rem;
+  height: 3.2rem;
+  place-items: center;
+  transform: translateX(-50%);
+  border: 1px solid rgb(22 160 133 / 15%);
+  border-radius: 50%;
+  background: #f3fbf7;
+  box-shadow: 0 0 0 0.45rem rgb(255 255 255 / 96%);
+  color: #c1cf23;
+}
+
+.heartBadge svg {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.reviewer {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.reviewerAvatar {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 2px solid #88d1ba;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f4fff9, #d3f1e4 52%, #a7ddc8);
+  color: #176b5a;
+  font-size: 0.74rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 0 3px rgb(54 201 167 / 9%);
+}
+
+.reviewerDetails {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+}
+
+.reviewerDetails strong {
+  overflow: hidden;
+  color: #118675;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviewerDetails span {
+  overflow: hidden;
+  color: #647580;
+  font-size: 0.67rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quote {
+  flex: 1;
+  margin: 1.05rem 0 0.9rem;
+  color: #172b35;
+  font-size: clamp(0.96rem, 1.2vw, 1.16rem);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.48;
+}
+
+.ratingRow {
+  display: flex;
+  min-height: 2.15rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ratingStars {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 0.55rem;
+  background: #f0f8f3;
+  color: #c1a031;
+  font-size: 0.75rem;
+  letter-spacing: 0;
+}
+
+.ratingRow > strong {
+  color: #172b35;
+  font-size: 0.72rem;
+}
+
+.reviewCount {
+  margin-left: auto;
+  color: #647580;
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+.carouselControls {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  gap: 1.1rem;
+  margin: 0.35rem auto 0;
+}
+
+.carouselButton {
+  border-color: rgb(17 134 117 / 16%) !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  color: #118675 !important;
+  box-shadow: 0 3px 12px rgb(21 75 61 / 5%);
+}
+
+.carouselButton:hover {
+  border-color: rgb(17 134 117 / 30%) !important;
+  background: #f1faf6 !important;
+  color: #0d705f !important;
+  transform: translateY(-1px);
+}
+
+.slideStatus {
+  color: #647580;
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.slideStatus > span:first-child {
+  color: #118675;
+  font-weight: 800;
+}
+
+.carouselHint {
+  margin: 0.45rem 0 0;
+  color: #647580;
+  font-size: 0.74rem;
+  text-align: center;
+}
+
+@media (max-width: 1150px) {
+  .viewport .slide {
+    flex-basis: 25%;
+  }
+}
+
+@media (max-width: 900px) {
+  .viewport .slide {
+    flex-basis: 33.333%;
+  }
+
+  .reviewCard {
+    min-height: 23rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .viewport .slide {
+    flex-basis: 50%;
+  }
+}
+
+@media (max-width: 520px) {
+  .viewport {
+    padding-top: 1.5rem;
+  }
+
+  .viewport .slide {
+    flex-basis: 100%;
+    padding-inline: 0.45rem;
+  }
+
+  .reviewCard {
+    min-height: 27rem;
+    border-radius: 2rem 2rem 1.5rem 1.5rem;
+    padding: 3rem 1.35rem 1.2rem;
+  }
+
+  .reviewerAvatar {
+    width: 3.4rem;
+    height: 3.4rem;
+  }
+
+  .reviewerDetails strong {
+    font-size: 1rem;
+  }
+
+  .quote {
+    margin-top: 1.25rem;
+    font-size: 1.23rem;
+  }
+
+  .ratingRow {
+    gap: 0.48rem;
+  }
+
+  .ratingStars {
+    min-height: 2.15rem;
+    padding-inline: 0.58rem;
+    font-size: 0.82rem;
+  }
+
+  .reviewCount {
+    font-size: 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carouselButton {
+    transition: none;
+  }
+}

@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# VaraX — Equipment Rental Platform
 
-## Getting Started
+VaraX is a responsive equipment rental marketplace concept for Bangladesh. It helps customers discover and request construction, photography, vehicle, agriculture, electronics, and event equipment from local owners.
 
-First, run the development server:
+## Project status
+
+- **Live URL:** Not deployed yet
+- **Client:** Next.js App Router, React, TypeScript
+- **Current mode:** Frontend demo with browser-persisted sample accounts, listings, favorites, and bookings
+- **Payments:** Demo checkout only; it does not process real payments
+
+## Key features
+
+- Responsive home page with featured equipment, categories, customer reviews, and rental steps
+- Equipment catalog with search, category, location, rental-type, price, availability, sorting, and pagination controls
+- Private equipment details and a booking form with date, quantity, contact, delivery, and notes fields
+- Customer, owner, and admin dashboard previews
+- Owner listing creation, editing, and deletion; new listings start as pending
+- Admin listing review, user-role management, and rental monitoring
+- Favorites, profile editing, demo checkout, payment status screens, loading states, and error recovery
+- Persistent light/dark theme preference
+
+## Demo access
+
+Open `/login` and choose **Customer demo**, **Owner demo**, or **Admin demo**. Demo changes are stored in this browser's local storage. They are for frontend review only and do not replace server-side authorization.
+
+## Run locally
+
+Node.js 20.19 or newer is required.
+
+```bash
+npm ci
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Main packages
+
+- `next`, `react`, `react-dom`
+- `typescript`
+- `framer-motion`
+- `better-auth`, `@better-auth/mongo-adapter`, `mongodb`
+- `tailwindcss` (global setup), CSS Modules (component and page styling)
+
+## Available scripts
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run lint
+npx tsc --noEmit
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Production work still required
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The demo data layer must be connected to the production API. Configure authentication providers and environment variables, enforce roles and permissions on the server, and integrate Stripe Checkout/webhooks before accepting real bookings or payments. Replace this README's deployment status with the live URL when deployed.

@@ -1,0 +1,27 @@
+.carousel {
+  position: relative;
+  width: 100%;
+}
+
+.viewport {
+  overflow: hidden;
+}
+
+.content {
+  display: flex;
+  touch-action: pan-y pinch-zoom;
+}
+
+.item {
+  min-width: 0;
+  flex: 0 0 100%;
+}
+
+.viewport[data-orientation="vertical"] .content {
+  flex-direction: column;
+  touch-action: pan-x pinch-zoom;
+}
+
+.viewport[data-orientation="vertical"] .item {
+  flex-basis: 100%;
+}

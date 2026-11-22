@@ -1,0 +1,6 @@
+.siteLayout {
+  display: flex;
+  min-height: 100%;
+  flex: 1;
+  flex-direction: column;
+}

@@ -1,0 +1,85 @@
+.errorPage {
+  display: grid;
+  flex: 1;
+  min-height: 70vh;
+  place-items: center;
+  padding: 2rem 1rem;
+  background: var(--cloud-white);
+}
+
+.errorCard {
+  display: grid;
+  width: min(100%, 32rem);
+  justify-items: center;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 2.2rem;
+  background: var(--surface);
+  text-align: center;
+  box-shadow: var(--shadow-soft);
+}
+
+.errorIcon {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff1e9;
+  color: #ac5c39;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.errorEyebrow {
+  margin-top: 1rem;
+  color: var(--emerald-deep);
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.1em;
+}
+
+.errorCard h1 {
+  margin: 0.45rem 0 0;
+  color: var(--midnight-navy);
+  font-family: var(--font-plus-jakarta), "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(1.4rem, 4vw, 1.8rem);
+  font-weight: 850;
+  letter-spacing: -0.05em;
+}
+
+.errorCard p {
+  margin: 0.5rem 0 1.2rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.errorActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.errorActions button,
+.errorActions a {
+  display: inline-flex;
+  min-height: 2.65rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  padding: 0 1rem;
+  background: var(--midnight-navy);
+  color: var(--surface);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.errorActions a {
+  background: var(--surface);
+  color: var(--text-primary);
+}

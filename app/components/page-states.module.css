@@ -1,0 +1,114 @@
+.statePage {
+  display: grid;
+  flex: 1;
+  min-height: min(72vh, 48rem);
+  place-items: center;
+  padding: 2rem 1rem 3rem;
+  background:
+    radial-gradient(ellipse at 52% 38%, rgb(22 160 133 / 7%), transparent 27rem),
+    var(--cloud-white);
+}
+
+.loadingCard,
+.notFoundCard {
+  display: flex;
+  width: min(100%, 37rem);
+  min-height: 20rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 1.2rem;
+  padding: 2rem 1.5rem;
+  background: var(--surface);
+  box-shadow: 0 15px 44px rgb(16 29 42 / 7%);
+  text-align: center;
+}
+
+.spinner {
+  position: relative;
+  display: block;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0.38rem solid #e3efec;
+  border-right-color: var(--emerald);
+  border-top-color: #87cdbd;
+  border-radius: 50%;
+  animation: spin 850ms linear infinite;
+}
+
+.loadingCard h1 {
+  margin: 1.1rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+.loadingCard p {
+  margin: 0.4rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.notFoundCard {
+  min-height: 25rem;
+}
+
+.roadwork {
+  width: min(13rem, 58vw);
+  height: auto;
+}
+
+.errorCode {
+  margin: 0.25rem 0 0;
+  color: var(--midnight-navy);
+  font-family: var(--font-plus-jakarta), "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(2.4rem, 7vw, 3.2rem);
+  font-weight: 900;
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.notFoundCard h1 {
+  margin: 0.5rem 0 0;
+  font-size: clamp(1.2rem, 4vw, 1.55rem);
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+.notFoundCopy {
+  margin: 0.45rem 0 1.2rem;
+  color: var(--text-secondary);
+  font-size: 0.83rem;
+}
+
+.homeButton {
+  display: inline-flex;
+  min-height: 2.65rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.7rem;
+  padding: 0 1.2rem;
+  background: var(--midnight-navy);
+  color: var(--surface);
+  font-size: 0.8rem;
+  font-weight: 750;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.homeButton:hover {
+  transform: translateY(-1px);
+  background: var(--emerald-deep);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.5s;
+  }
+}
