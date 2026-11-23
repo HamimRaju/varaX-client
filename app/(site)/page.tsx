@@ -224,6 +224,7 @@ export default function Home() {
               alt=""
               fill
               sizes="(max-width: 700px) 100vw, 62vw"
+              loading="eager"
               fetchPriority="high"
               className={styles.heroPhoto}
             />

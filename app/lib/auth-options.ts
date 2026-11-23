@@ -109,7 +109,7 @@ export function createAuthOptions(database: AuthDatabase) {
       storage: "database",
       customRules: {
         "/sign-in/email": { window: 60, max: 8 },
-        "/sign-up/email": { window: 3_600, max: 5 },
+        "/sign-up/email": { window: 3_600, max: isProduction ? 5 : 20 },
         "/sign-in/social": { window: 60, max: 10 },
         "/sign-up/social": { window: 3_600, max: 10 },
       },
