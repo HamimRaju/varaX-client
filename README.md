@@ -1,57 +1,111 @@
-# VaraX — Equipment Rental Platform
+# VaraX client
 
-VaraX is a responsive equipment rental marketplace concept for Bangladesh. It helps customers discover and request construction, photography, vehicle, agriculture, electronics, and event equipment from local owners.
+The VaraX client is the Next.js App Router frontend for the equipment-rental marketplace. User, equipment, favorite, booking, payment, and dashboard data comes from `varaX-server`; the client contains no seeded users or listing fixtures.
 
-## Project status
+## Stack and local development
 
-- **Live URL:** Not deployed yet
-- **Client:** Next.js App Router, React, TypeScript
-- **Current mode:** Frontend demo with browser-persisted sample accounts, listings, favorites, and bookings
-- **Payments:** Demo checkout only; it does not process real payments
+- Node.js 20.19 or newer
+- Next.js 16, React 19, TypeScript
+- Better Auth 1.7 with its MongoDB adapter and JWT plugin
 
-## Key features
-
-- Responsive home page with featured equipment, categories, customer reviews, and rental steps
-- Equipment catalog with search, category, location, rental-type, price, availability, sorting, and pagination controls
-- Private equipment details and a booking form with date, quantity, contact, delivery, and notes fields
-- Customer, owner, and admin dashboard previews
-- Owner listing creation, editing, and deletion; new listings start as pending
-- Admin listing review, user-role management, and rental monitoring
-- Favorites, profile editing, demo checkout, payment status screens, loading states, and error recovery
-- Persistent light/dark theme preference
-
-## Demo access
-
-Open `/login` and choose **Customer demo**, **Owner demo**, or **Admin demo**. Demo changes are stored in this browser's local storage. They are for frontend review only and do not replace server-side authorization.
-
-## Run locally
-
-Node.js 20.19 or newer is required.
-
-```bash
+```sh
 npm ci
+cp .env.example .env
+# Fill in the values below; do not commit .env.
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+The frontend is available at `http://localhost:3000`. Run `npm run lint`,
+`npx tsc --noEmit`, and `npm run build` before deploying.
 
-## Main packages
+## Environment variables
 
-- `next`, `react`, `react-dom`
-- `typescript`
-- `framer-motion`
-- `better-auth`, `@better-auth/mongo-adapter`, `mongodb`
-- `tailwindcss` (global setup), CSS Modules (component and page styling)
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `BETTER_AUTH_SECRET` | Yes | Random, private Better Auth signing/encryption secret. Generate a unique value for each environment. |
+| `BETTER_AUTH_URL` | Yes | Public origin of this Next.js application. |
+| `NEXT_PUBLIC_APP_URL` | Yes | Same public Next.js origin, exposed for the Better Auth browser client. |
+| `CLIENT_URL` | Yes | Same client origin; trusted by Better Auth and configured as the server's CORS origin. |
+| `MONGODB_URI` | Yes | MongoDB Atlas or local replica-set connection. Must point to the same database used by the Express API. |
+| `JWT_ISSUER` | Yes | Must exactly match the server's `JWT_ISSUER`. Usually the client origin. |
+| `JWT_AUDIENCE` | Yes | Must exactly match the server's `JWT_AUDIENCE` (example: `varax-api`). |
+| `GOOGLE_CLIENT_ID` | For Google sign-in | Google OAuth web client ID. |
+| `GOOGLE_CLIENT_SECRET` | For Google sign-in | Google OAuth client secret; server-side only. |
+| `NEXT_PUBLIC_BACKEND_URL` | Yes | Express server origin, without `/api` (for example `http://localhost:5000`). |
+| `IMGBB_API_KEY` | For image uploads | ImgBB key used only by the authenticated Next.js upload route; never add a `NEXT_PUBLIC_` prefix. |
 
-## Available scripts
+Generate `BETTER_AUTH_SECRET` locally with `openssl rand -base64 32`. Do not
+reuse it between development and production or commit it.
 
-```bash
-npm run dev
-npm run lint
-npx tsc --noEmit
-npm run build
+The Better Auth session is held in its secure, HTTP-only cookie. For Express
+requests, `authClient.token()` obtains a separate short-lived EdDSA access
+token. The shared API client sends it as `Authorization: Bearer ...`; neither
+credential is stored in `localStorage`.
+
+## Authentication and roles
+
+Email/password and Google sign-in are hosted by Better Auth in this application.
+New registrations and new Google accounts are assigned the `customer` role;
+public registration cannot set a role. The JWT plugin exposes `/api/auth/token`
+and `/api/auth/jwks`. Express verifies the JWT through the configured remote
+JWKS URL and reads the user's current role and active status from MongoDB.
+
+Promote the first administrator manually after registering the account. Using
+a trusted MongoDB administration tool, update only that user's record in the
+`users` collection, for example:
+
+```javascript
+db.users.updateOne(
+  { email: "your-admin@example.com" },
+  { $set: { role: "admin" } }
+);
 ```
 
-## Production work still required
+Do not expose database credentials or provide an admin-registration form.
 
-The demo data layer must be connected to the production API. Configure authentication providers and environment variables, enforce roles and permissions on the server, and integrate Stripe Checkout/webhooks before accepting real bookings or payments. Replace this README's deployment status with the live URL when deployed.
+## Google OAuth setup
+
+In Google Cloud Console, create an OAuth 2.0 **Web application** client. Add the
+client origin to **Authorized JavaScript origins** and
+`<BETTER_AUTH_URL>/api/auth/callback/google` to **Authorized redirect URIs**.
+Set the resulting client ID and secret in the client deployment environment.
+Keep the OAuth consent screen and production domain configuration current.
+
+For MongoDB Atlas, create a database user with the required read/write
+permissions, allow network access from both hosting providers, and use the
+same replica-set connection string in the client and server. Booking and payment
+transactions will not work against standalone MongoDB.
+
+## Image uploads
+
+Create an ImgBB account/API key and configure `IMGBB_API_KEY` in the Next.js
+server environment (not in browser code). Authenticated users can upload
+JPEG, PNG, WEBP, or GIF files up to 5 MB through `/api/images`; the route returns
+only the hosted image URL. Equipment writes and profile updates store that URL
+in MongoDB.
+
+## Related service and production deployment
+
+See `varaX-server/README.md` for API routes, MongoDB indexes and transaction
+requirements, Stripe setup, webhook behavior, and backend environment values.
+The backend base URL, CORS `CLIENT_URL`, auth URL, JWT issuer, and JWKS URL must
+be aligned across both deployments. The JWT JWKS URL is
+`<BETTER_AUTH_URL>/api/auth/jwks`.
+
+For production, set the environment variables in the hosting provider's secret
+manager, use HTTPS origins, and deploy the Next.js and Express applications
+separately. Configure the Stripe webhook to point to the Express
+`/api/payments/webhook` endpoint. Do not enable real bookings until MongoDB
+transaction support, OAuth, ImgBB, and Stripe test/live settings have been
+verified.
+
+## Current product notes
+
+- The light/dark display preference is the only application preference stored
+  in browser local storage; it is not authentication or customer data.
+- Reviews and ratings are not yet backed by a review API. New equipment is
+  shown without fabricated ratings.
+- Email verification and password-reset flows are intentionally not enabled.
+- Automated repository tests do not perform a live Google OAuth session or a
+  real Stripe charge. Use provider test credentials and a test webhook before
+  enabling live payments.
