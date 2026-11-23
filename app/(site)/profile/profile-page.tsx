@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform } from "@/app/lib/platform-context";
 import styles from "./profile.module.css";
 
 function ProfilePortrait() {
@@ -25,7 +25,7 @@ function ProfilePortrait() {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { ready, user, updateProfile: saveProfile, notify } = useDemoPlatform();
+  const { ready, user, updateProfile: saveProfile, notify } = usePlatform();
   const [name, setName] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
