@@ -126,7 +126,7 @@
   padding-top: 2rem;
 }
 
-.demoCaption {
+.workspaceNote {
   display: grid;
   gap: 0.25rem;
   border: 1px solid rgb(255 255 255 / 10%);
@@ -135,12 +135,12 @@
   background: rgb(255 255 255 / 5%);
 }
 
-.demoCaption strong {
+.workspaceNote strong {
   color: #eef6f4;
   font-size: 0.72rem;
 }
 
-.demoCaption span {
+.workspaceNote span {
   color: #a9bbc1;
   font-size: 0.62rem;
   line-height: 1.45;
@@ -472,6 +472,31 @@
   text-align: left;
 }
 
+.listPagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.listPagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 560px) {
+  .listPagination {
+    justify-content: space-between;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+  }
+}
+
 .dataTable th {
   border-bottom: 1px solid #e8edef;
   padding: 0.65rem 0.55rem;
@@ -637,7 +662,9 @@
   top: calc(100% + 0.3rem);
   right: 0;
   display: grid;
-  width: 13rem;
+  width: min(24rem, 82vw);
+  max-height: min(70vh, 34rem);
+  overflow-y: auto;
   gap: 0.5rem;
   border: 1px solid #dfe7e9;
   border-radius: 0.65rem;
@@ -655,7 +682,9 @@
   font-weight: 700;
 }
 
-.inlineEdit input {
+.inlineEdit input,
+.inlineEdit select,
+.inlineEdit textarea {
   width: 100%;
   min-height: 2rem;
   border: 1px solid #dce5e7;
@@ -663,6 +692,12 @@
   padding: 0 0.5rem;
   color: #263942;
   font: inherit;
+}
+
+.inlineEdit textarea {
+  min-height: 4rem;
+  padding: 0.45rem 0.5rem;
+  resize: vertical;
 }
 
 .smallPrimary,

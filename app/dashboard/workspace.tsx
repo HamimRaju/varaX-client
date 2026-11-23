@@ -3,24 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { categories, rentalTypes, type Category, type RentalType } from "@/app/(site)/equipment/equipment-data";
 import {
-  useDemoPlatform,
+  usePlatform,
+  type DashboardPageKey,
   type BookingStatus,
-  type ListingStatus,
   type PlatformEquipment,
   type PlatformRole,
-} from "@/app/lib/demo-platform";
-import { getErrorMessage } from "@/app/lib/api";
+} from "@/app/lib/platform-context";
+import { api, getErrorMessage, type ApiPagination } from "@/app/lib/api";
 import styles from "./workspace.module.css";
 
 const money = (value: number) => `৳${value.toLocaleString("en-BD")}`;
-const todayDateString = () => {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 10);
-};
 const roleNames: Record<PlatformRole, string> = {
   customer: "Customer",
   owner: "Equipment owner",
@@ -83,6 +78,41 @@ function EmptyState({ title, detail, action }: { title: string; detail: string; 
   );
 }
 
+function ListPager({
+  pagination,
+  disabled = false,
+  onPage,
+}: {
+  pagination?: ApiPagination;
+  disabled?: boolean;
+  onPage: (page: number) => void;
+}) {
+  if (!pagination || pagination.totalPages < 2) return null;
+  return (
+    <nav className={styles.listPagination} aria-label="List pages">
+      <button
+        className={styles.tableAction}
+        type="button"
+        disabled={disabled || !pagination.hasPrevPage}
+        onClick={() => onPage(pagination.currentPage - 1)}
+      >
+        Previous
+      </button>
+      <span>
+        Page {pagination.currentPage} of {pagination.totalPages} · {pagination.totalItems} records
+      </span>
+      <button
+        className={styles.tableAction}
+        type="button"
+        disabled={disabled || !pagination.hasNextPage}
+        onClick={() => onPage(pagination.currentPage + 1)}
+      >
+        Next
+      </button>
+    </nav>
+  );
+}
+
 function EquipmentEdit({ item, onSave }: { item: PlatformEquipment; onSave: (updates: Partial<PlatformEquipment>) => void }) {
   return (
     <details className={styles.editDetails}>
@@ -92,17 +122,45 @@ function EquipmentEdit({ item, onSave }: { item: PlatformEquipment; onSave: (upd
         onSubmit={(event) => {
           event.preventDefault();
           const data = new FormData(event.currentTarget);
+          const category = String(data.get("category")) as Category;
+          const categoryName = categories.find((option) => option.value === category)?.label ?? category;
           onSave({
+            name: String(data.get("name")),
+            description: String(data.get("description")),
+            category,
+            categoryLabel: `${categoryName} Equipment`,
             price: Number(data.get("price")),
             quantity: Number(data.get("quantity")),
             location: String(data.get("location")),
-            available: Number(data.get("quantity")) > 0,
+            rentals: [String(data.get("rentalType")) as RentalType],
+            condition: String(data.get("condition")),
+            brand: String(data.get("brand")),
+            model: String(data.get("model")),
+            image: String(data.get("image")),
+            terms: String(data.get("terms")),
           });
         }}
       >
-        <label>Daily price <input name="price" type="number" min="1" defaultValue={item.price} required /></label>
-        <label>Quantity <input name="quantity" type="number" min="0" defaultValue={item.quantity} required /></label>
-        <label>Location <input name="location" defaultValue={item.location} required /></label>
+        <label>Equipment name <input name="name" maxLength={90} defaultValue={item.name} required /></label>
+        <label>Category
+          <select name="category" defaultValue={item.category}>
+            {categories.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
+          </select>
+        </label>
+        <label>Rental price ({item.rentals[0]?.toLowerCase() ?? "period"}) <input name="price" type="number" min="1" defaultValue={item.price} required /></label>
+        <label>Available quantity <input name="quantity" type="number" min="0" defaultValue={item.quantity} required /></label>
+        <label>Rental type
+          <select name="rentalType" defaultValue={item.rentals[0] ?? "Daily"}>
+            {rentalTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+          </select>
+        </label>
+        <label>Location <input name="location" maxLength={160} defaultValue={item.location} required /></label>
+        <label>Condition <input name="condition" maxLength={120} defaultValue={item.condition} required /></label>
+        <label>Brand <input name="brand" maxLength={100} defaultValue={item.brand} required /></label>
+        <label>Model <input name="model" maxLength={100} defaultValue={item.model} required /></label>
+        <label>Image URL <input name="image" type="url" maxLength={2048} defaultValue={item.image} required /></label>
+        <label>Description <textarea name="description" maxLength={1000} defaultValue={item.description} required /></label>
+        <label>Rental terms <textarea name="terms" maxLength={2000} defaultValue={item.terms} required /></label>
         <button className={styles.smallPrimary} type="submit">Save changes</button>
       </form>
     </details>
@@ -122,8 +180,14 @@ export default function DashboardWorkspace({
     user,
     users,
     listings,
-    favorites,
+    favoriteListings,
     bookings,
+    overview,
+    analytics,
+    dashboardPages,
+    loadDashboardPage,
+    loadError,
+    refresh,
     toggleFavorite,
     addEquipment,
     updateEquipment,
@@ -135,12 +199,13 @@ export default function DashboardWorkspace({
     cancelBooking,
     signOut,
     notify,
-  } = useDemoPlatform();
+  } = usePlatform();
   const activeSection = section[0] ?? "overview";
   const [menuOpen, setMenuOpen] = useState(false);
   const roleBase = `/dashboard/${role}`;
   const navItems = navigation[role];
   const activeLabel = navItems.find((item) => item.section === activeSection)?.label ?? "Overview";
+  const [pageLoading, setPageLoading] = useState(false);
 
   useEffect(() => {
     if (ready && !user) {
@@ -148,23 +213,10 @@ export default function DashboardWorkspace({
     }
   }, [ready, roleBase, router, section, user]);
 
-  const ownedEquipment = useMemo(
-    () => listings.filter((item) => item.ownerId === user?.id || item.ownerName === user?.name),
-    [listings, user],
-  );
-  const customerBookings = bookings.filter(
-    (booking) => booking.customerEmail === user?.email || booking.customerName === user?.name,
-  );
-  const ownerBookings = bookings.filter(
-    (booking) => booking.ownerId === user?.id || booking.ownerName === user?.name,
-  );
-  const completedPaidBookings = bookings.filter(
-    (booking) => booking.paymentStatus === "Paid" && booking.bookingStatus === "Completed",
-  );
-  const ownerRevenue = ownerBookings
-    .filter((booking) => booking.paymentStatus === "Paid")
-    .reduce((sum, booking) => sum + booking.totalAmount, 0);
-  const totalRevenue = completedPaidBookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
+  const ownedEquipment = listings.filter((item) => item.ownerId === user?.id);
+  const customerBookings = role === "customer" ? bookings : [];
+  const ownerBookings = role === "owner" ? bookings : [];
+  const total = (key: string) => Number(overview[key] ?? 0);
 
   if (!ready || !user) {
     return <main className={styles.entryPage}><p>Loading your workspace…</p></main>;
@@ -184,6 +236,18 @@ export default function DashboardWorkspace({
   }
 
   const workspaceUser = user;
+
+  async function changeListPage(kind: DashboardPageKey, page: number) {
+    if (pageLoading) return;
+    setPageLoading(true);
+    try {
+      await loadDashboardPage(kind, page);
+    } catch (error) {
+      notify(getErrorMessage(error, "This page could not be loaded."), "error");
+    } finally {
+      setPageLoading(false);
+    }
+  }
 
   async function handleLogout() {
     try {
@@ -206,62 +270,74 @@ export default function DashboardWorkspace({
   }
 
   function renderOverview() {
-    const ownListingCount = role === "owner" ? ownedEquipment.length : listings.length;
     const roleBookings = role === "customer" ? customerBookings : role === "owner" ? ownerBookings : bookings;
-    const spend = customerBookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
     const metrics = role === "customer"
       ? [
-          { label: "Total rentals", value: String(customerBookings.length), detail: "Your booking history", icon: "▤", tone: "green" as const },
-          { label: "Saved favorites", value: String(favorites.length), detail: "Equipment on your shortlist", icon: "♡", tone: "gold" as const },
-          { label: "Rental spend", value: money(spend), detail: "Across your demo bookings", icon: "৳", tone: "blue" as const },
+          { label: "Total rentals", value: String(total("totalBookings")), detail: "Your booking history", icon: "▤", tone: "green" as const },
+          { label: "Saved favorites", value: String(total("totalFavorites")), detail: "Equipment on your shortlist", icon: "♡", tone: "gold" as const },
+          { label: "Rental spend", value: money(total("totalSpent")), detail: "Paid rental total", icon: "৳", tone: "blue" as const },
         ]
       : role === "owner"
         ? [
-            { label: "Listed equipment", value: String(ownListingCount), detail: "Your equipment listings", icon: "▣", tone: "green" as const },
-            { label: "Completed rentals", value: String(ownerBookings.filter((booking) => booking.bookingStatus === "Completed").length), detail: `${ownerBookings.length} bookings in total`, icon: "▤", tone: "gold" as const },
-            { label: "Total earnings", value: money(ownerRevenue), detail: "From paid demo bookings", icon: "৳", tone: "blue" as const },
+            { label: "Listed equipment", value: String(total("totalEquipment")), detail: "Your active equipment listings", icon: "▣", tone: "green" as const },
+            { label: "Completed rentals", value: String(total("completedRentals")), detail: `${total("totalRentalRequests")} rental requests`, icon: "▤", tone: "gold" as const },
+            { label: "Total earnings", value: money(total("totalEarnings")), detail: "Gross paid earnings (BDT)", icon: "৳", tone: "blue" as const },
           ]
         : [
-            { label: "Total users", value: String(users.length), detail: "Registered demo accounts", icon: "♧", tone: "green" as const },
-            { label: "Total equipment", value: String(listings.length), detail: `${listings.filter((item) => item.status === "Pending").length} awaiting review`, icon: "▣", tone: "gold" as const },
-            { label: "Completed revenue", value: money(totalRevenue), detail: `${completedPaidBookings.length} completed paid rentals`, icon: "৳", tone: "blue" as const },
+            { label: "Total users", value: String(total("totalUsers")), detail: `${total("totalCustomers")} customers · ${total("totalOwners")} owners`, icon: "♧", tone: "green" as const },
+            { label: "Total equipment", value: String(total("totalEquipment")), detail: `${total("pendingEquipment")} awaiting review`, icon: "▣", tone: "gold" as const },
+            { label: "Platform revenue", value: money(total("totalRevenue")), detail: `${total("totalPaidBookings")} paid bookings`, icon: "৳", tone: "blue" as const },
           ];
-    const recentBookings = [...roleBookings].sort((a, b) => b.bookingDate.localeCompare(a.bookingDate)).slice(0, 4);
+    const recentBookings = roleBookings.slice(0, 4);
 
     return (
       <>
         <div className={styles.metricGrid}>
           {metrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}
         </div>
+        {loadError ? (
+          <div className={styles.emptyState} role="alert">
+            <p>{loadError}</p>
+            <button className={styles.smallPrimary} type="button" onClick={() => void refresh()}>Retry loading</button>
+          </div>
+        ) : null}
         {role === "admin" ? (
           <section className={styles.analyticsCard}>
-            <div className={styles.cardHeading}><div><h2>Platform overview</h2><p>Demo booking activity by month</p></div><span className={styles.liveBadge}>LIVE PREVIEW</span></div>
+            <div className={styles.cardHeading}><div><h2>Platform overview</h2><p>Monthly booking activity from the platform database</p></div><span className={styles.liveBadge}>LIVE DATA</span></div>
             <div className={styles.analyticsTotals}>
-              <div><span>All bookings</span><strong>{bookings.length}</strong></div>
-              <div><span>Pending approvals</span><strong>{listings.filter((item) => item.status === "Pending").length}</strong></div>
-              <div><span>Completed rentals</span><strong>{bookings.filter((booking) => booking.bookingStatus === "Completed").length}</strong></div>
-              <div><span>Total paid revenue</span><strong>{money(bookings.filter((booking) => booking.paymentStatus === "Paid").reduce((sum, booking) => sum + booking.totalAmount, 0))}</strong></div>
+              <div><span>All bookings</span><strong>{total("totalBookings")}</strong></div>
+              <div><span>Pending approvals</span><strong>{total("pendingEquipment")}</strong></div>
+              <div><span>Completed rentals</span><strong>{total("completedRentals")}</strong></div>
+              <div><span>Total paid revenue</span><strong>{money(total("totalRevenue"))}</strong></div>
             </div>
-            <MonthlyBars bookings={bookings} />
+            <MonthlyBars
+              data={Array.isArray(analytics.bookingsByMonth)
+                ? (analytics.bookingsByMonth as Array<{ month: string; bookingCount: number }>).map((row) => ({ month: row.month, value: row.bookingCount }))
+                : []}
+            />
           </section>
         ) : role === "owner" ? (
           <section className={styles.analyticsCard}>
-            <div className={styles.cardHeading}><div><h2>Earnings overview</h2><p>Paid rentals for your equipment</p></div><span className={styles.liveBadge}>DEMO DATA</span></div>
-            <MonthlyBars bookings={ownerBookings} revenue />
+            <div className={styles.cardHeading}><div><h2>Earnings overview</h2><p>Monthly paid earnings for your equipment</p></div><span className={styles.liveBadge}>LIVE DATA</span></div>
+            <MonthlyBars
+              revenue
+              data={Array.isArray(analytics.monthlyRevenue)
+                ? (analytics.monthlyRevenue as Array<{ month: string; revenue: number }>).map((row) => ({ month: row.month, value: row.revenue }))
+                : []}
+            />
           </section>
         ) : null}
         <section className={styles.dataCard}>
           <div className={styles.cardHeading}>
-            <div><h2>{role === "admin" ? "Recent platform rentals" : role === "owner" ? "Recent equipment rentals" : "Recent rentals"}</h2><p>Your latest activity, saved in this browser.</p></div>
+            <div><h2>{role === "admin" ? "Recent platform rentals" : role === "owner" ? "Recent equipment rentals" : "Recent rentals"}</h2><p>Latest rental activity from your VaraX account.</p></div>
             <Link className={styles.tableAction} href={`${roleBase}/rentals`}>View all <span aria-hidden="true">→</span></Link>
           </div>
           <BookingTable
             rows={recentBookings}
-            admin={role === "admin"}
             showCustomer={role !== "customer"}
-            canManage={role !== "customer"}
-            onStatusChange={(id, bookingStatus) => updateBooking(id, { bookingStatus })}
-            onPaymentChange={(id, paymentStatus) => updateBooking(id, { paymentStatus })}
+            role={role}
+            onStatusChange={(id, bookingStatus, reason) => void setBookingStatus(id, bookingStatus, reason).catch((error) => notify(getErrorMessage(error), "error"))}
+            onCancel={(id) => void cancelBooking(id).catch((error) => notify(getErrorMessage(error), "error"))}
           />
         </section>
         {renderProfileShortcut()}
@@ -276,36 +352,47 @@ export default function DashboardWorkspace({
         <div className={styles.cardHeading}><div><h2>{role === "customer" ? "My rentals" : role === "owner" ? "Equipment rentals" : "All rentals"}</h2><p>Rental dates, amounts, payment and booking status.</p></div></div>
         <BookingTable
           rows={rows}
-          admin={role === "admin"}
           showCustomer={role !== "customer"}
-          canManage={role !== "customer"}
-          onStatusChange={(id, bookingStatus) => updateBooking(id, { bookingStatus })}
-          onPaymentChange={(id, paymentStatus) => updateBooking(id, { paymentStatus })}
+          role={role}
+          onStatusChange={(id, bookingStatus, reason) => void setBookingStatus(id, bookingStatus, reason).catch((error) => notify(getErrorMessage(error), "error"))}
+          onCancel={(id) => void cancelBooking(id).catch((error) => notify(getErrorMessage(error), "error"))}
+        />
+        <ListPager
+          pagination={dashboardPages.bookings}
+          disabled={pageLoading}
+          onPage={(page) => void changeListPage("bookings", page)}
         />
       </section>
     );
   }
 
   function renderFavorites() {
-    const savedEquipment = listings.filter((item) => favorites.includes(item.id));
+    const savedEquipment = favoriteListings;
     return (
       <section className={styles.dataCard}>
         <div className={styles.cardHeading}><div><h2>My favorites</h2><p>Equipment you have saved to compare and book later.</p></div></div>
         {savedEquipment.length ? (
-          <div className={styles.tableScroll}>
-            <table className={styles.dataTable}>
+          <>
+            <div className={styles.tableScroll}>
+              <table className={styles.dataTable}>
               <thead><tr><th>Equipment</th><th>Category</th><th>Rental price</th><th>Availability</th><th>Actions</th></tr></thead>
               <tbody>{savedEquipment.map((item) => (
                 <tr key={item.id}>
                   <td><div className={styles.equipmentCell}><div className={styles.tableImage}><Image src={item.image} alt="" fill sizes="3rem" unoptimized /></div><span><strong>{item.name}</strong><small>{item.location}</small></span></div></td>
                   <td>{item.categoryLabel}</td>
-                  <td>{money(item.price)} / day</td>
+                  <td>{money(item.price)} / {item.rentals[0]?.toLowerCase() ?? "rental period"}</td>
                   <td><StatusPill>{item.available ? "Available" : "Unavailable"}</StatusPill></td>
-                  <td><div className={styles.actionStack}><Link className={styles.tableAction} href={`/equipment/${item.id}`}>View details</Link><button className={styles.tableActionDanger} type="button" onClick={() => { toggleFavorite(item.id); notify("Removed from favorites."); }}>Remove</button></div></td>
+                  <td><div className={styles.actionStack}><Link className={styles.tableAction} href={`/equipment/${item.id}`}>View details</Link><button className={styles.tableActionDanger} type="button" onClick={() => { void toggleFavorite(item.id).then(() => notify("Removed from favorites.")).catch((error) => notify(getErrorMessage(error), "error")); }}>Remove</button></div></td>
                 </tr>
               ))}</tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+            <ListPager
+              pagination={dashboardPages.favorites}
+              disabled={pageLoading}
+              onPage={(page) => void changeListPage("favorites", page)}
+            />
+          </>
         ) : (
           <EmptyState title="No favorites yet" detail="Save equipment from the catalog to keep it here." action={<Link className={styles.smallPrimary} href="/equipment">Browse equipment</Link>} />
         )}
@@ -333,16 +420,15 @@ export default function DashboardWorkspace({
                   <div className={styles.actionStack}>
                     {admin ? (
                       <>
-                        <button className={styles.tableAction} type="button" onClick={() => { setListingStatus(item.id, "Approved"); notify(`${item.name} approved.`); }}>Approve</button>
-                        <button className={styles.tableActionDanger} type="button" onClick={() => { setListingStatus(item.id, "Rejected"); notify(`${item.name} rejected.`, "info"); }}>Reject</button>
+                        {item.status !== "Approved" ? <button className={styles.tableAction} type="button" onClick={() => { void setListingStatus(item.id, "Approved").then(() => notify(`${item.name} approved.`)).catch((error) => notify(getErrorMessage(error), "error")); }}>Approve</button> : null}
+                        {item.status !== "Rejected" ? <button className={styles.tableActionDanger} type="button" onClick={() => { void setListingStatus(item.id, "Rejected").then(() => notify(`${item.name} rejected.`, "info")).catch((error) => notify(getErrorMessage(error), "error")); }}>Reject</button> : null}
                       </>
                     ) : null}
-                    <EquipmentEdit item={item} onSave={(updates) => { updateEquipment(item.id, updates); notify("Equipment details updated."); }} />
+                    <EquipmentEdit item={item} onSave={(updates) => { void updateEquipment(item.id, updates).then(() => notify("Equipment details updated.")).catch((error) => notify(getErrorMessage(error), "error")); }} />
                     <Link className={styles.tableAction} href={`/equipment/${item.id}`}>Details</Link>
                     <button className={styles.tableActionDanger} type="button" onClick={() => {
                       if (window.confirm(`Remove ${item.name} from your listings?`)) {
-                        removeEquipment(item.id);
-                        notify("Equipment listing removed.", "info");
+                        void removeEquipment(item.id).then(() => notify("Equipment listing removed.", "info")).catch((error) => notify(getErrorMessage(error), "error"));
                       }
                     }}>Delete</button>
                   </div>
@@ -358,7 +444,7 @@ export default function DashboardWorkspace({
   function renderUsers() {
     return (
       <section className={styles.dataCard}>
-        <div className={styles.cardHeading}><div><h2>All users</h2><p>Role changes will be available through authorized admin tools.</p></div><span className={styles.liveBadge}>FRONTEND PREVIEW</span></div>
+        <div className={styles.cardHeading}><div><h2>All users</h2><p>Manage account roles and access.</p></div><span className={styles.liveBadge}>LIVE DATA</span></div>
         <div className={styles.tableScroll}>
           <table className={styles.dataTable}>
             <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Registration date</th><th>Account</th></tr></thead>
@@ -366,14 +452,48 @@ export default function DashboardWorkspace({
               <tr key={member.id}>
                 <td><strong>{member.name}</strong></td><td>{member.email}</td>
                 <td>
-                  {roleNames[member.role]}
+                  <select
+                    aria-label={`Change role for ${member.name}`}
+                    value={member.role}
+                    disabled={member.id === user?.id}
+                    onChange={(event) => {
+                      const nextRole = event.target.value as PlatformRole;
+                      void setUserRole(member.id, nextRole)
+                        .then(() => notify(`${member.name}'s role was updated.`))
+                        .catch((error) => notify(getErrorMessage(error), "error"));
+                    }}
+                  >
+                    {(["customer", "owner", "admin"] as PlatformRole[]).map((nextRole) => (
+                      <option key={nextRole} value={nextRole}>{roleNames[nextRole]}</option>
+                    ))}
+                  </select>
                 </td>
                 <td>{member.createdAt ?? "—"}</td>
-                <td><StatusPill>Active</StatusPill></td>
+                <td>
+                  <button
+                    className={member.isActive === false ? styles.tableAction : styles.tableActionDanger}
+                    type="button"
+                    disabled={member.id === user?.id}
+                    onClick={() => {
+                      const nextActive = member.isActive === false;
+                      if (!nextActive && !window.confirm(`Deactivate ${member.name}'s account?`)) return;
+                      void setUserStatus(member.id, nextActive)
+                        .then(() => notify(`Account ${nextActive ? "activated" : "deactivated"}.`))
+                        .catch((error) => notify(getErrorMessage(error), "error"));
+                    }}
+                  >
+                    {member.isActive === false ? "Reactivate" : "Deactivate"}
+                  </button>
+                </td>
               </tr>
             ))}</tbody>
           </table>
         </div>
+        <ListPager
+          pagination={dashboardPages.users}
+          disabled={pageLoading}
+          onPage={(page) => void changeListPage("users", page)}
+        />
       </section>
     );
   }
@@ -381,8 +501,8 @@ export default function DashboardWorkspace({
   function renderAddEquipment() {
     return (
       <AddEquipmentForm
-        onCreate={(data) => {
-          const listing = addEquipment(data);
+        onCreate={async (data) => {
+          const listing = await addEquipment(data);
           notify(`${listing.name} was submitted for admin review.`, "success");
           router.push(`${roleBase}/equipment`);
         }}
@@ -400,7 +520,7 @@ export default function DashboardWorkspace({
     if (activeSection === "users") return renderUsers();
     if (activeSection === "add-equipment") return renderAddEquipment();
     if (activeSection === "equipment") {
-      const items = role === "admin" ? listings : ownedEquipment;
+    const items = role === "admin" ? listings : ownedEquipment;
       return (
         <section className={styles.dataCard}>
           <div className={styles.cardHeading}>
@@ -408,6 +528,11 @@ export default function DashboardWorkspace({
             {role === "owner" ? <Link className={styles.smallPrimary} href={`${roleBase}/add-equipment`}>+ Add equipment</Link> : null}
           </div>
           {renderEquipmentTable(items, role === "admin")}
+          <ListPager
+            pagination={dashboardPages.equipment}
+            disabled={pageLoading}
+            onPage={(page) => void changeListPage("equipment", page)}
+          />
         </section>
       );
     }
@@ -443,7 +568,7 @@ export default function DashboardWorkspace({
             })}
           </nav>
           <div className={styles.sidebarBottom}>
-            <div className={styles.demoCaption}><strong>Demo workspace</strong><span>Changes are saved in this browser only.</span></div>
+            <div className={styles.workspaceNote}><strong>Live workspace</strong><span>Your account data syncs with VaraX.</span></div>
             <Link className={styles.viewSite} href="/">← View marketplace</Link>
             <button className={styles.logoutButton} type="button" onClick={handleLogout}>↪ <span>Log out</span></button>
             <div className={styles.sidebarUser}>
@@ -459,7 +584,7 @@ export default function DashboardWorkspace({
             <Link className={styles.topProfile} href="/profile">{user.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</Link>
           </header>
           {renderContent()}
-          <footer className={styles.workspaceFooter}><span>© 2026 VaraX</span><span>Frontend demo · Changes stay in this browser</span></footer>
+          <footer className={styles.workspaceFooter}><span>© 2026 VaraX</span><span>Connected to your VaraX account</span></footer>
         </div>
       </div>
     </main>
@@ -468,45 +593,52 @@ export default function DashboardWorkspace({
 
 function BookingTable({
   rows,
-  admin,
   showCustomer,
-  canManage,
+  role,
   onStatusChange,
-  onPaymentChange,
+  onCancel,
 }: {
-  rows: ReturnType<typeof useDemoPlatform>["bookings"];
-  admin: boolean;
+  rows: ReturnType<typeof usePlatform>["bookings"];
   showCustomer: boolean;
-  canManage: boolean;
-  onStatusChange: (id: string, status: BookingStatus) => void;
-  onPaymentChange: (id: string, status: PaymentStatus) => void;
+  role: PlatformRole;
+  onStatusChange: (id: string, status: Exclude<BookingStatus, "Pending" | "Cancelled">, reason?: string) => void;
+  onCancel: (id: string) => void;
 }) {
   if (!rows.length) return <EmptyState title="No rentals yet" detail="Bookings will appear here after you reserve equipment." action={<Link className={styles.smallPrimary} href="/equipment">Explore equipment</Link>} />;
   return (
     <div className={styles.tableScroll}>
       <table className={styles.dataTable}>
-        <thead><tr><th>Equipment & renter</th><th>Rental dates</th><th>Booking date</th><th>Amount</th><th>Payment</th><th>Booking</th>{admin ? <th>Owner</th> : null}</tr></thead>
+        <thead><tr><th>Equipment & renter</th><th>Rental dates</th><th>Booking date</th><th>Amount</th><th>Payment</th><th>Booking</th>{role === "admin" ? <th>Owner</th> : null}</tr></thead>
         <tbody>{rows.map((booking) => (
           <tr key={booking.id}>
             <td><div className={styles.equipmentCell}><div className={styles.tableImage}><Image src={booking.equipmentImage} alt="" fill sizes="3rem" unoptimized /></div><span><strong>{booking.equipmentName}</strong><small>{showCustomer ? booking.customerName : booking.id}</small></span></div></td>
             <td>{booking.startDate}<small className={styles.dateSubline}>to {booking.endDate}</small></td>
             <td>{booking.bookingDate}</td>
             <td><strong>{money(booking.totalAmount)}</strong><small className={styles.dateSubline}>{booking.quantity} unit{booking.quantity === 1 ? "" : "s"}</small></td>
+            <td><StatusPill>{booking.paymentStatus}</StatusPill></td>
             <td>
-              {admin ? (
-                <select aria-label={`Update payment for booking ${booking.id}`} value={booking.paymentStatus} onChange={(event) => onPaymentChange(booking.id, event.target.value as PaymentStatus)}>
-                  {(["Unpaid", "Paid", "Refunded"] as PaymentStatus[]).map((status) => <option key={status}>{status}</option>)}
-                </select>
-              ) : <StatusPill>{booking.paymentStatus}</StatusPill>}
+              {role === "owner" ? (
+                <OwnerBookingStatus booking={booking} onStatusChange={onStatusChange} />
+              ) : (
+                <div className={styles.actionStack}>
+                  <StatusPill>{booking.bookingStatus}</StatusPill>
+                  {role === "customer" &&
+                  (booking.bookingStatus === "Pending" ||
+                    (booking.bookingStatus === "Confirmed" && booking.startDate > new Date().toISOString().slice(0, 10))) ? (
+                    <button
+                      className={styles.tableActionDanger}
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm("Cancel this rental booking?")) onCancel(booking.id);
+                      }}
+                    >
+                      Cancel booking
+                    </button>
+                  ) : null}
+                </div>
+              )}
             </td>
-            <td>
-              {canManage ? (
-                <select aria-label={`Update booking ${booking.id}`} value={booking.bookingStatus} onChange={(event) => onStatusChange(booking.id, event.target.value as BookingStatus)}>
-                  {(["Pending", "Confirmed", "Active", "Completed", "Cancelled"] as BookingStatus[]).map((status) => <option key={status}>{status}</option>)}
-                </select>
-              ) : <StatusPill>{booking.bookingStatus}</StatusPill>}
-            </td>
-            {admin ? <td>{booking.ownerName}</td> : null}
+            {role === "admin" ? <td>{booking.ownerName}</td> : null}
           </tr>
         ))}</tbody>
       </table>
@@ -514,22 +646,57 @@ function BookingTable({
   );
 }
 
-function MonthlyBars({ bookings, revenue = false }: { bookings: ReturnType<typeof useDemoPlatform>["bookings"]; revenue?: boolean }) {
-  const months = Array.from({ length: 6 }, (_, index) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - (5 - index), 1);
-    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-    const value = bookings
-      .filter((booking) => booking.bookingDate.startsWith(key) && (!revenue || booking.paymentStatus === "Paid"))
-      .reduce((sum, booking) => sum + (revenue ? booking.totalAmount : 1), 0);
-    return { label: date.toLocaleDateString("en", { month: "short" }), value };
-  });
+function OwnerBookingStatus({
+  booking,
+  onStatusChange,
+}: {
+  booking: ReturnType<typeof usePlatform>["bookings"][number];
+  onStatusChange: (id: string, status: Exclude<BookingStatus, "Pending" | "Cancelled">, reason?: string) => void;
+}) {
+  const current = booking.bookingStatus;
+  const options: BookingStatus[] = [current];
+  if (current === "Pending") {
+    options.push(booking.paymentStatus === "Paid" ? "Confirmed" : "Rejected");
+  } else if (current === "Confirmed") {
+    options.push("Active");
+  } else if (current === "Active") {
+    options.push("Completed");
+  }
+
+  return (
+    <select
+      aria-label={`Update booking ${booking.id}`}
+      value={current}
+      onChange={(event) => {
+        const status = event.target.value as BookingStatus;
+        if (status === current || status === "Pending" || status === "Cancelled") return;
+        const reason = status === "Rejected"
+          ? window.prompt("Why are you rejecting this booking?")
+          : undefined;
+        if (status === "Rejected" && !reason?.trim()) return;
+        onStatusChange(
+          booking.id,
+          status as Exclude<BookingStatus, "Pending" | "Cancelled">,
+          reason ?? undefined,
+        );
+      }}
+    >
+      {options.map((status) => <option key={status} value={status}>{status}</option>)}
+    </select>
+  );
+}
+
+function MonthlyBars({ data, revenue = false }: { data: Array<{ month: string; value: number }>; revenue?: boolean }) {
+  const months = data.slice(-6).map((item) => ({
+    label: new Date(`${item.month}-01T00:00:00Z`).toLocaleDateString("en", { month: "short" }),
+    value: item.value,
+  }));
   const max = Math.max(1, ...months.map((month) => month.value));
   return (
     <div className={styles.chartArea} role="img" aria-label={revenue ? "Monthly paid rental earnings" : "Monthly booking activity"}>
       {months.map((month) => (
         <div className={styles.chartColumn} key={month.label}>
-          <span className={styles.chartValue}>{revenue ? (month.value ? `${Math.round(month.value / 1000)}k` : "0") : month.value}</span>
+          <span className={styles.chartValue}>{revenue ? money(month.value) : month.value}</span>
           <div className={styles.chartTrack}><span style={{ height: `${Math.max(month.value ? 12 : 4, (month.value / max) * 100)}%` }} /></div>
           <small>{month.label}</small>
         </div>
@@ -538,41 +705,48 @@ function MonthlyBars({ bookings, revenue = false }: { bookings: ReturnType<typeo
   );
 }
 
-function AddEquipmentForm({ onCreate }: { onCreate: (input: Parameters<ReturnType<typeof useDemoPlatform>["addEquipment"]>[0]) => void }) {
-  const [selectedRentals, setSelectedRentals] = useState<RentalType[]>(["Daily"]);
+function AddEquipmentForm({ onCreate }: { onCreate: (input: Parameters<ReturnType<typeof usePlatform>["addEquipment"]>[0]) => Promise<unknown> }) {
+  const [selectedRental, setSelectedRental] = useState<RentalType>("Daily");
   const [message, setMessage] = useState("");
   const [imagePreview, setImagePreview] = useState("");
   const [imageError, setImageError] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  function toggleRental(type: RentalType) {
-    setSelectedRentals((current) => current.includes(type) ? current.filter((item) => item !== type) : [...current, type]);
-  }
-
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (imageError) return;
-    if (!selectedRentals.length) {
-      setMessage("Choose at least one rental period.");
-      return;
+    if (imageError || submitting) return;
+    setSubmitting(true);
+    setMessage("");
+    try {
+      const data = new FormData(event.currentTarget);
+      let image = String(data.get("image") ?? "").trim();
+      if (imageFile) image = await api.uploadImage(imageFile);
+      if (!/^https?:\/\//i.test(image)) {
+        throw new Error("Provide a hosted image URL or upload an image.");
+      }
+      const category = String(data.get("category")) as Category;
+      const categoryLabel = categories.find((item) => item.value === category)?.label ?? category;
+      await onCreate({
+        name: String(data.get("name")),
+        description: String(data.get("description")),
+        category,
+        categoryLabel: `${categoryLabel} Equipment`,
+        location: String(data.get("location")),
+        price: Number(data.get("price")),
+        rentals: [selectedRental],
+        quantity: Number(data.get("quantity")),
+        condition: String(data.get("condition")),
+        brand: String(data.get("brand")),
+        model: String(data.get("model")),
+        image,
+        terms: String(data.get("terms")),
+      });
+    } catch (error) {
+      setMessage(getErrorMessage(error, "The equipment could not be submitted."));
+    } finally {
+      setSubmitting(false);
     }
-    const data = new FormData(event.currentTarget);
-    const category = String(data.get("category")) as Category;
-    const categoryLabel = categories.find((item) => item.value === category)?.label ?? category;
-    onCreate({
-      name: String(data.get("name")),
-      description: String(data.get("description")),
-      category,
-      categoryLabel: `${categoryLabel} Equipment`,
-      location: String(data.get("location")),
-      price: Number(data.get("price")),
-      rentals: selectedRentals,
-      quantity: Number(data.get("quantity")),
-      condition: String(data.get("condition")),
-      brand: String(data.get("brand")),
-      model: String(data.get("model")),
-      image: imagePreview || String(data.get("image")) || "/equipment/camera.jpg",
-      terms: String(data.get("terms")),
-    });
   }
 
   return (
@@ -587,15 +761,17 @@ function AddEquipmentForm({ onCreate }: { onCreate: (input: Parameters<ReturnTyp
         <label>Condition<input name="condition" placeholder="Excellent, well maintained" required /></label>
         <label>Brand<input name="brand" placeholder="Brand" required /></label>
         <label>Model<input name="model" placeholder="Model or year" required /></label>
-        <label className={styles.formWide}>Equipment image URL<input name="image" type="text" defaultValue="/equipment/camera.jpg" placeholder="https://… or /equipment/camera.jpg" /></label>
-        <label className={styles.formWide}>Or choose an image for this browser preview<input type="file" accept="image/*" onChange={(event) => {
+        <label className={styles.formWide}>Equipment image URL<input name="image" type="url" placeholder="https://…" /></label>
+        <label className={styles.formWide}>Or upload an equipment image<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => {
           const file = event.target.files?.[0];
           if (!file) return;
-          if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
-            setImageError("Choose an image under 2 MB.");
+          if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
+            setImageError("Choose an image under 5 MB.");
             setImagePreview("");
+            setImageFile(null);
             return;
           }
+          setImageFile(file);
           const reader = new FileReader();
           reader.onload = () => {
             setImagePreview(typeof reader.result === "string" ? reader.result : "");
@@ -606,11 +782,11 @@ function AddEquipmentForm({ onCreate }: { onCreate: (input: Parameters<ReturnTyp
         }} /></label>
         {imagePreview ? <div className={styles.imagePreview}><Image src={imagePreview} alt="Equipment preview" width={100} height={80} unoptimized /></div> : null}
         {imageError ? <p className={styles.formError} role="alert">{imageError}</p> : null}
-        <fieldset className={styles.rentalTypes}><legend>Rental periods</legend>{rentalTypes.map((type) => <label key={type}><input type="checkbox" checked={selectedRentals.includes(type)} onChange={() => toggleRental(type)} />{type}</label>)}</fieldset>
+        <fieldset className={styles.rentalTypes}><legend>Rental type</legend>{rentalTypes.map((type) => <label key={type}><input type="radio" name="rentalType" checked={selectedRental === type} onChange={() => setSelectedRental(type)} />{type}</label>)}</fieldset>
         <label className={styles.formWide}>Description<textarea name="description" rows={4} maxLength={1000} required placeholder="Describe the equipment, its condition, and what it is suitable for." /></label>
         <label className={styles.formWide}>Rental terms and conditions<textarea name="terms" rows={3} maxLength={700} required placeholder="Add pickup, deposit, and return conditions." /></label>
         {message ? <p className={styles.formError} role="alert">{message}</p> : null}
-        <div className={styles.formFooter}><span>New listings are submitted with <strong>Pending</strong> status.</span><button className={styles.smallPrimary} type="submit">Submit for review <span aria-hidden="true">→</span></button></div>
+        <div className={styles.formFooter}><span>New listings are submitted with <strong>Pending</strong> status.</span><button className={styles.smallPrimary} type="submit" disabled={submitting}>{submitting ? "Submitting…" : "Submit for review"} <span aria-hidden="true">→</span></button></div>
       </form>
     </section>
   );
