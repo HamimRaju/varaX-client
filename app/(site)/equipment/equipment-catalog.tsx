@@ -3,9 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
-import { getErrorMessage } from "@/app/lib/api";
+import { useEffect, useState } from "react";
+import { mapEquipment, usePlatform } from "@/app/lib/platform-context";
+import { api, getErrorMessage, type ApiPagination } from "@/app/lib/api";
 import styles from "./equipment.module.css";
 
 import { categories, rentalTypes, type Category, type RentalType } from "./equipment-data";
@@ -65,7 +65,19 @@ export default function EquipmentCatalog({
   initialQuery?: string;
 }) {
   const router = useRouter();
-  const { listings, favorites, toggleFavorite, user, notify } = useDemoPlatform();
+  const { favorites, toggleFavorite, user, notify } = usePlatform();
+  const [items, setItems] = useState<ReturnType<typeof mapEquipment>[]>([]);
+  const [pagination, setPagination] = useState<ApiPagination>({
+    currentPage: 1,
+    totalPages: 0,
+    totalItems: 0,
+    limit: 6,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
   const [search, setSearch] = useState(initialQuery ?? "");
   const [selectedCategories, setSelectedCategories] = useState<Category[]>(() =>
     categories.some((category) => category.value === initialCategory)
@@ -78,59 +90,73 @@ export default function EquipmentCatalog({
   const [selectedCity, setSelectedCity] = useState(
     () => ["Dhaka", "Chattogram", "Gazipur"].find((city) => initialLocation?.includes(city)) ?? "",
   );
-  const [sortBy, setSortBy] = useState("price-asc");
+  const [sortBy, setSortBy] = useState("price_asc");
   const [page, setPage] = useState(1);
 
-  const filteredEquipment = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    const filtered = listings.filter((item) => {
-      if (item.status !== "Approved") return false;
-      const matchesSearch =
-        !query ||
-        `${item.name} ${item.categoryLabel} ${item.location}`.toLowerCase().includes(query);
-      const matchesCategory =
-        selectedCategories.length === 0 || selectedCategories.includes(item.category);
-      const matchesRental =
-        selectedRentals.length === 0 ||
-        selectedRentals.some((rental) => item.rentals.includes(rental));
-      const matchesPrice = item.price <= maxPrice;
-      const matchesAvailability = !availableOnly || item.available;
-      const matchesCity = !selectedCity || item.location.includes(selectedCity);
+  const pageSize = 6;
+  const pageCount = Math.max(1, pagination.totalPages);
+  const visibleEquipment = items;
+  const firstItem = pagination.totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastItem = Math.min(page * pageSize, pagination.totalItems);
 
-      return (
-        matchesSearch &&
-        matchesCategory &&
-        matchesRental &&
-        matchesPrice &&
-        matchesAvailability &&
-        matchesCity
-      );
-    });
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      setLoadError("");
+      void api.listEquipment({
+        search: search.trim() || undefined,
+        category: selectedCategories.length ? selectedCategories.join(",") : undefined,
+        location: selectedCity || undefined,
+        rentalType: selectedRentals.length
+          ? selectedRentals.map((rental) => rental.toLowerCase()).join(",")
+          : undefined,
+        maxPrice,
+        availability: availableOnly ? true : undefined,
+        sort: sortBy,
+        page,
+        limit: pageSize,
+        signal: controller.signal,
+      })
+        .then((result) => {
+          if (controller.signal.aborted) return;
+          setItems(result.data.map((item) => mapEquipment(item)));
+          setPagination(result.pagination ?? {
+            currentPage: page,
+            totalPages: 0,
+            totalItems: 0,
+            limit: pageSize,
+            hasNextPage: false,
+            hasPrevPage: false,
+          });
+        })
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted) {
+            setLoadError(getErrorMessage(error, "Equipment could not be loaded."));
+            setItems([]);
+          }
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+    }, 250);
 
-    return filtered.sort((first, second) => {
-      if (sortBy === "price-desc") return second.price - first.price;
-      if (sortBy === "rating-desc") return second.rating - first.rating;
-      if (sortBy === "recent") {
-        return new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
-      }
-      return first.price - second.price;
-    });
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [
     availableOnly,
     maxPrice,
+    page,
+    pageSize,
     search,
-    selectedCity,
     selectedCategories,
+    selectedCity,
     selectedRentals,
     sortBy,
-    listings,
+    retryCount,
   ]);
-
-  const pageSize = 6;
-  const pageCount = Math.max(1, Math.ceil(filteredEquipment.length / pageSize));
-  const visibleEquipment = filteredEquipment.slice((page - 1) * pageSize, page * pageSize);
-  const firstItem = filteredEquipment.length === 0 ? 0 : (page - 1) * pageSize + 1;
-  const lastItem = Math.min(page * pageSize, filteredEquipment.length);
 
   function toggleCategory(category: Category) {
     setPage(1);
@@ -157,6 +183,7 @@ export default function EquipmentCatalog({
     setMaxPrice(200000);
     setAvailableOnly(false);
     setSelectedCity("");
+    setSortBy("price_asc");
     setPage(1);
   }
 
@@ -304,19 +331,18 @@ export default function EquipmentCatalog({
         <section className={styles.results} aria-label="Equipment listings">
           <div className={styles.resultsToolbar}>
             <div className={styles.resultsSummary} aria-live="polite">
-              <span className={styles.resultCount}>{filteredEquipment.length}</span>
+              <span className={styles.resultCount}>{pagination.totalItems}</span>
               <span>
                 Showing <strong>{firstItem}–{lastItem}</strong> of{" "}
-                <strong>{filteredEquipment.length}</strong> rentals
+                <strong>{pagination.totalItems}</strong> rentals
               </span>
             </div>
             <label className={styles.sortControl}>
               <span>Sort by:</span>
-              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
-                <option value="price-asc">Price Low to High</option>
-                <option value="price-desc">Price High to Low</option>
-                <option value="recent">Recently Added</option>
-                <option value="rating-desc">Top Rated</option>
+              <select value={sortBy} onChange={(event) => { setSortBy(event.target.value); setPage(1); }}>
+                <option value="price_asc">Price Low to High</option>
+                <option value="price_desc">Price High to Low</option>
+                <option value="newest">Recently Added</option>
               </select>
               <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path
@@ -330,7 +356,15 @@ export default function EquipmentCatalog({
             </label>
           </div>
 
-          {visibleEquipment.length > 0 ? (
+          {loading ? (
+            <div className={styles.emptyState} aria-live="polite"><h2>Loading equipment…</h2></div>
+          ) : loadError ? (
+            <div className={styles.emptyState} role="alert">
+              <h2>Equipment could not be loaded</h2>
+              <p>{loadError}</p>
+              <button type="button" onClick={() => setRetryCount((current) => current + 1)}>Try again</button>
+            </div>
+          ) : visibleEquipment.length > 0 ? (
             <div className={styles.equipmentGrid}>
               {visibleEquipment.map((item) => {
                 const isFavorite = favorites.includes(item.id);
@@ -381,10 +415,14 @@ export default function EquipmentCatalog({
                           <strong>{formatPrice(item.price)}</strong>
                           <span>/ {item.rentals[0]?.toLowerCase() ?? "day"}</span>
                         </p>
-                        <p className={styles.itemRating} aria-label={`${item.rating} out of 5 from ${item.reviews} reviews`}>
-                          <StarIcon />
-                          <strong>{item.rating.toFixed(1)}</strong>
-                          <span>({item.reviews})</span>
+                        <p className={styles.itemRating}>
+                          {item.rating && item.reviews ? (
+                            <>
+                              <StarIcon />
+                              <strong>{item.rating.toFixed(1)}</strong>
+                              <span>({item.reviews})</span>
+                            </>
+                          ) : <span>New listing</span>}
                         </p>
                       </div>
                       <Link
@@ -411,7 +449,7 @@ export default function EquipmentCatalog({
             </div>
           )}
 
-          {filteredEquipment.length > pageSize ? (
+          {pagination.totalPages > 1 ? (
             <nav className={styles.pagination} aria-label="Equipment pages">
               <button
                 className={styles.pageArrow}
@@ -422,17 +460,7 @@ export default function EquipmentCatalog({
               >
                 ←
               </button>
-              {Array.from({ length: pageCount }, (_, index) => index + 1).map((pageNumber) => (
-                <button
-                  className={`${styles.pageNumber} ${page === pageNumber ? styles.currentPage : ""}`}
-                  type="button"
-                  aria-current={page === pageNumber ? "page" : undefined}
-                  key={pageNumber}
-                  onClick={() => changePage(pageNumber)}
-                >
-                  {pageNumber}
-                </button>
-              ))}
+              <span aria-live="polite">Page {page} of {pageCount}</span>
               <button
                 className={styles.pageArrow}
                 type="button"
@@ -442,6 +470,7 @@ export default function EquipmentCatalog({
               >
                 →
               </button>
+              <span aria-live="polite">Page {page} of {pageCount}</span>
             </nav>
           ) : null}
         </section>
