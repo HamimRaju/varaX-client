@@ -10,12 +10,31 @@ import {
 } from "@/components/ui/carousel";
 import styles from "./review-carousel.module.css";
 
-const testimonials = [
+const feedbackTopics = [
   {
-    name: "Customer feedback",
-    role: "Verified renter reviews",
-    quote: "Reviews from verified customers will appear here after completed rentals.",
-    initials: "VX",
+    name: "Booking experience",
+    message: "Verified renter feedback about the booking experience will appear here after a completed rental.",
+    number: "01",
+  },
+  {
+    name: "Equipment quality",
+    message: "Verified renter feedback about equipment quality will appear here after a completed rental.",
+    number: "02",
+  },
+  {
+    name: "Owner communication",
+    message: "Verified renter feedback about owner communication will appear here after a completed rental.",
+    number: "03",
+  },
+  {
+    name: "Pickup and delivery",
+    message: "Verified renter feedback about pickup and delivery will appear here after a completed rental.",
+    number: "04",
+  },
+  {
+    name: "Overall experience",
+    message: "Verified renter feedback about the overall experience will appear here after a completed rental.",
+    number: "05",
   },
 ];
 
@@ -37,7 +56,7 @@ function SlideStatus() {
     <span className={styles.slideStatus} aria-live="polite">
       <span>{String(selectedIndex + 1).padStart(2, "0")}</span>
       <span aria-hidden="true"> / </span>
-      {String(testimonials.length).padStart(2, "0")}
+      {String(feedbackTopics.length).padStart(2, "0")}
     </span>
   );
 }
@@ -46,18 +65,18 @@ export default function ReviewCarousel() {
   return (
     <Carousel
       className={styles.carousel}
-      opts={{ loop: true, align: "start", slidesToScroll: 1 }}
+      opts={{ loop: true, align: "start", slidesToScroll: 1, duration: 35 }}
       aria-label="Renter reviews"
     >
       <CarouselContent
         viewportClassName={styles.viewport}
         className={styles.track}
       >
-        {testimonials.map((review, index) => (
+        {feedbackTopics.map((topic, index) => (
           <CarouselItem
             className={styles.slide}
-            key={review.name}
-            aria-label={`${index + 1} of ${testimonials.length}`}
+            key={topic.name}
+            aria-label={`${index + 1} of ${feedbackTopics.length}`}
           >
             <article className={styles.reviewCard}>
               <span className={styles.heartBadge} aria-hidden="true">
@@ -66,20 +85,18 @@ export default function ReviewCarousel() {
 
               <div className={styles.reviewer}>
                 <span className={styles.reviewerAvatar} aria-hidden="true">
-                  {review.initials}
+                  {topic.number}
                 </span>
                 <span className={styles.reviewerDetails}>
-                  <strong>{review.name}</strong>
-                  <span>{review.role}</span>
+                  <strong>{topic.name}</strong>
+                  <span>Feedback topic</span>
                 </span>
               </div>
 
-              <blockquote className={styles.quote}>
-                “{review.quote}”
-              </blockquote>
+              <p className={styles.quote}>{topic.message}</p>
 
               <div className={styles.ratingRow}>
-                <span className={styles.reviewCount}>No reviews have been published yet.</span>
+                <span className={styles.reviewCount}>Awaiting verified feedback</span>
               </div>
             </article>
           </CarouselItem>
@@ -91,7 +108,7 @@ export default function ReviewCarousel() {
         <CarouselNext className={styles.carouselButton} />
       </div>
       <p className={styles.carouselHint}>
-        Use the arrows to explore renter stories one at a time
+        Reviews will appear here after customers complete rentals
       </p>
     </Carousel>
   );

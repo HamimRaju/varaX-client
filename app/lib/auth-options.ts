@@ -34,6 +34,21 @@ export function createAuthOptions(database: AuthDatabase) {
   }
 
   const isProduction = process.env.NODE_ENV === "production";
+  const authBaseURL = isProduction
+    ? baseURL
+    : {
+        allowedHosts: [
+          new URL(baseURL).host,
+          "localhost",
+          "localhost:3000",
+          "localhost:3001",
+          "127.0.0.1",
+          "127.0.0.1:3000",
+          "127.0.0.1:3001",
+        ],
+        fallback: baseURL,
+        protocol: "auto" as const,
+      };
   const issuer = process.env.JWT_ISSUER?.trim() || new URL(baseURL).origin;
   const audience = process.env.JWT_AUDIENCE?.trim() || "varax-api";
   const origins = [
@@ -44,7 +59,7 @@ export function createAuthOptions(database: AuthDatabase) {
 
   return {
     appName: "VaraX",
-    baseURL,
+    baseURL: authBaseURL,
     secret,
     database,
     trustedOrigins: [...new Set(origins.filter((origin): origin is string => Boolean(origin)))],

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireSession } from "@/app/lib/server-auth";
+import { SessionBoundary } from "@/app/components/session-boundary";
 import ProfilePage from "./profile-page";
 
 export const metadata: Metadata = {
@@ -7,7 +7,10 @@ export const metadata: Metadata = {
   description: "Manage your VaraX account information.",
 };
 
-export default async function ProfileRoute() {
-  await requireSession("/profile");
-  return <ProfilePage />;
+export default function ProfileRoute() {
+  return (
+    <SessionBoundary callbackURL="/profile">
+      <ProfilePage />
+    </SessionBoundary>
+  );
 }

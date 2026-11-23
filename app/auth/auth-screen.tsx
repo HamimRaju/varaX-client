@@ -124,10 +124,11 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
     setSignUpMessage("");
 
     try {
-      const callbackURL = "/dashboard";
+      const requestedCallbackURL = getCallbackURL();
       const result = await authClient.signIn.social({
         provider: "google",
-        callbackURL,
+        callbackURL:
+          requestedCallbackURL === "/" ? "/dashboard" : requestedCallbackURL,
       });
       if (result.error) throw result.error;
     } catch (error) {

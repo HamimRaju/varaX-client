@@ -357,21 +357,42 @@
 }
 
 .reviewsSection {
+  --feedback-accent: #118675;
+  --feedback-muted: #647580;
+  --feedback-card: #ffffff;
+  --feedback-card-soft: #f0f8f3;
+  --feedback-border: rgb(22 160 133 / 16%);
+  --feedback-ring: rgb(255 255 255 / 96%);
+  --feedback-inset: rgb(255 255 255 / 90%);
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgb(22 160 133 / 16%);
+  border: 1px solid var(--feedback-border);
   border-radius: 1.4rem;
   padding: clamp(1.65rem, 4vw, 3.2rem) clamp(0.9rem, 3vw, 2rem) 1.5rem;
   background:
     radial-gradient(ellipse at 50% 110%, rgb(22 160 133 / 6%), transparent 48%),
     linear-gradient(
       150deg,
-      color-mix(in srgb, #142735 2%, #ffffff) 0%,
-      color-mix(in srgb, #142735 4%, #ffffff) 48%,
-      color-mix(in srgb, #142735 7%, #ffffff) 100%
+      var(--surface) 0%,
+      color-mix(in srgb, var(--surface-soft) 72%, var(--surface)) 48%,
+      var(--surface-soft) 100%
     );
   box-shadow: 0 16px 50px rgb(16 45 39 / 5%);
+}
+
+:global(:root[data-theme="dark"]) .reviewsSection {
+  --feedback-accent: #67ddc2;
+  --feedback-muted: #aec0c8;
+  --feedback-card: #1b303d;
+  --feedback-card-soft: #243d49;
+  --feedback-border: rgb(103 221 194 / 22%);
+  --feedback-ring: #172735;
+  --feedback-inset: rgb(255 255 255 / 7%);
+  background:
+    radial-gradient(ellipse at 50% 110%, rgb(22 160 133 / 13%), transparent 48%),
+    linear-gradient(150deg, #172735 0%, #1a303d 48%, #203744 100%);
+  box-shadow: 0 16px 50px rgb(0 0 0 / 20%);
 }
 
 .reviewsSection::before,
@@ -408,6 +429,10 @@
 
 .reviewsSection .sectionEyebrow {
   color: var(--emerald-deep);
+}
+
+:global(:root[data-theme="dark"]) .reviewsSection .sectionEyebrow {
+  color: var(--feedback-accent);
 }
 
 .reviewsSection .sectionHeading h2 {

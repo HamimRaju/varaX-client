@@ -19,7 +19,7 @@
 .viewport .slide {
   display: flex;
   min-width: 0;
-  flex: 0 0 20%;
+  flex: 0 0 33.333%;
   padding: 0.25rem 0 0.85rem 0.7rem;
 }
 
@@ -29,20 +29,15 @@
   width: 100%;
   min-height: 24rem;
   flex-direction: column;
-  border: 1px solid rgb(22 160 133 / 16%);
+  border: 1px solid var(--feedback-border, rgb(22 160 133 / 16%));
   border-radius: 2rem 2rem 1.6rem 1.6rem;
   padding: 2.9rem 1.1rem 1.15rem;
   background:
     radial-gradient(ellipse at 48% 110%, rgb(22 160 133 / 5%), transparent 53%),
-    linear-gradient(
-      155deg,
-      #ffffff 8%,
-      color-mix(in srgb, #142735 2%, #ffffff) 63%,
-      color-mix(in srgb, #142735 4%, #ffffff) 130%
-    );
+    linear-gradient(155deg, var(--feedback-card, #ffffff) 8%, var(--surface-soft) 130%);
   box-shadow:
     0 12px 30px rgb(21 75 61 / 6%),
-    inset 0 1px 0 rgb(255 255 255 / 90%);
+    inset 0 1px 0 var(--feedback-inset, rgb(255 255 255 / 90%));
   color: var(--midnight-navy);
 }
 
@@ -55,11 +50,11 @@
   height: 3.2rem;
   place-items: center;
   transform: translateX(-50%);
-  border: 1px solid rgb(22 160 133 / 15%);
+  border: 1px solid var(--feedback-border, rgb(22 160 133 / 15%));
   border-radius: 50%;
-  background: #f3fbf7;
-  box-shadow: 0 0 0 0.45rem rgb(255 255 255 / 96%);
-  color: #c1cf23;
+  background: var(--feedback-card-soft, #f3fbf7);
+  box-shadow: 0 0 0 0.45rem var(--feedback-ring, rgb(255 255 255 / 96%));
+  color: var(--feedback-accent, #118675);
 }
 
 .heartBadge svg {
@@ -80,10 +75,10 @@
   height: 3rem;
   flex: 0 0 auto;
   place-items: center;
-  border: 2px solid #88d1ba;
+  border: 2px solid var(--feedback-accent, #88d1ba);
   border-radius: 50%;
-  background: linear-gradient(145deg, #f4fff9, #d3f1e4 52%, #a7ddc8);
-  color: #176b5a;
+  background: linear-gradient(145deg, var(--feedback-card) 0%, var(--feedback-card-soft) 100%);
+  color: var(--feedback-accent, #176b5a);
   font-size: 0.74rem;
   font-weight: 900;
   letter-spacing: 0.02em;
@@ -98,7 +93,7 @@
 
 .reviewerDetails strong {
   overflow: hidden;
-  color: #118675;
+  color: var(--feedback-accent, #118675);
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.15;
@@ -108,7 +103,7 @@
 
 .reviewerDetails span {
   overflow: hidden;
-  color: #647580;
+  color: var(--feedback-muted, #647580);
   font-size: 0.67rem;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -117,7 +112,7 @@
 .quote {
   flex: 1;
   margin: 1.05rem 0 0.9rem;
-  color: #172b35;
+  color: var(--midnight-navy);
   font-size: clamp(0.96rem, 1.2vw, 1.16rem);
   font-weight: 500;
   letter-spacing: -0.025em;
@@ -137,20 +132,20 @@
   align-items: center;
   border-radius: 999px;
   padding: 0 0.55rem;
-  background: #f0f8f3;
+  background: var(--feedback-card-soft, #f0f8f3);
   color: #c1a031;
   font-size: 0.75rem;
   letter-spacing: 0;
 }
 
 .ratingRow > strong {
-  color: #172b35;
+  color: var(--midnight-navy);
   font-size: 0.72rem;
 }
 
 .reviewCount {
   margin-left: auto;
-  color: #647580;
+  color: var(--feedback-muted, #647580);
   font-size: 0.62rem;
   white-space: nowrap;
 }
@@ -165,35 +160,35 @@
 }
 
 .carouselButton {
-  border-color: rgb(17 134 117 / 16%) !important;
+  border-color: var(--feedback-border, rgb(17 134 117 / 16%)) !important;
   border-radius: 50% !important;
-  background: #ffffff !important;
-  color: #118675 !important;
+  background: var(--feedback-card, #ffffff) !important;
+  color: var(--feedback-accent, #118675) !important;
   box-shadow: 0 3px 12px rgb(21 75 61 / 5%);
 }
 
 .carouselButton:hover {
-  border-color: rgb(17 134 117 / 30%) !important;
-  background: #f1faf6 !important;
-  color: #0d705f !important;
+  border-color: var(--feedback-accent, rgb(17 134 117 / 30%)) !important;
+  background: var(--feedback-card-soft, #f1faf6) !important;
+  color: var(--feedback-accent, #0d705f) !important;
   transform: translateY(-1px);
 }
 
 .slideStatus {
-  color: #647580;
+  color: var(--feedback-muted, #647580);
   font-size: 0.76rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.08em;
 }
 
 .slideStatus > span:first-child {
-  color: #118675;
+  color: var(--feedback-accent, #118675);
   font-weight: 800;
 }
 
 .carouselHint {
   margin: 0.45rem 0 0;
-  color: #647580;
+  color: var(--feedback-muted, #647580);
   font-size: 0.74rem;
   text-align: center;
 }

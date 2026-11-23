@@ -1,7 +1,10 @@
-import { requireSession } from "@/app/lib/server-auth";
+import { SessionBoundary } from "@/app/components/session-boundary";
 import DashboardEntry from "./entry";
 
-export default async function DashboardPage() {
-  await requireSession("/dashboard");
-  return <DashboardEntry />;
+export default function DashboardPage() {
+  return (
+    <SessionBoundary callbackURL="/dashboard">
+      <DashboardEntry />
+    </SessionBoundary>
+  );
 }

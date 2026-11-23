@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { LoadingState } from "@/app/components/page-states";
 import { requireSession } from "@/app/lib/server-auth";
 import PaymentCancelClient from "./payment-cancel-client";
 
@@ -11,7 +13,17 @@ type PaymentCancelPageProps = {
   searchParams: Promise<{ bookingId?: string | string[] }>;
 };
 
-export default async function PaymentCancelPage({
+export default function PaymentCancelPage({
+  searchParams,
+}: PaymentCancelPageProps) {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <PaymentCancelContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function PaymentCancelContent({
   searchParams,
 }: PaymentCancelPageProps) {
   const params = await searchParams;

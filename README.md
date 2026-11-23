@@ -31,11 +31,15 @@ The frontend is available at `http://localhost:3000`. Run `npm run lint`,
 | `JWT_AUDIENCE` | Yes | Must exactly match the server's `JWT_AUDIENCE` (example: `varax-api`). |
 | `GOOGLE_CLIENT_ID` | For Google sign-in | Google OAuth web client ID. |
 | `GOOGLE_CLIENT_SECRET` | For Google sign-in | Google OAuth client secret; server-side only. |
-| `NEXT_PUBLIC_BACKEND_URL` | Yes | Express server origin, without `/api` (for example `http://localhost:5000`). |
+| `NEXT_PUBLIC_BACKEND_URL` | Yes | Express server origin, without `/api` (for example `http://localhost:5001`). |
 | `IMGBB_API_KEY` | For image uploads | ImgBB key used only by the authenticated Next.js upload route; never add a `NEXT_PUBLIC_` prefix. |
 
 Generate `BETTER_AUTH_SECRET` locally with `openssl rand -base64 32`. Do not
 reuse it between development and production or commit it.
+Keep the same secret across restarts and deployments for an environment. Better
+Auth encrypts its stored JWT signing keys with this value; changing it prevents
+the app from decrypting existing keys. Restore the previous value to recover
+them, or plan a JWKS reset/rotation before changing it.
 
 The Better Auth session is held in its secure, HTTP-only cookie. For Express
 requests, `authClient.token()` obtains a separate short-lived EdDSA access
@@ -68,6 +72,8 @@ Do not expose database credentials or provide an admin-registration form.
 In Google Cloud Console, create an OAuth 2.0 **Web application** client. Add the
 client origin to **Authorized JavaScript origins** and
 `<BETTER_AUTH_URL>/api/auth/callback/google` to **Authorized redirect URIs**.
+For local development, also authorize `http://localhost:3000` as a JavaScript
+origin and `http://localhost:3000/api/auth/callback/google` as a redirect URI.
 Set the resulting client ID and secret in the client deployment environment.
 Keep the OAuth consent screen and production domain configuration current.
 

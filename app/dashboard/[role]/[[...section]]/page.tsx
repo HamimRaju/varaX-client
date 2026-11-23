@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
+import { LoadingState } from "@/app/components/page-states";
 import { requireSession } from "@/app/lib/server-auth";
 import DashboardWorkspace from "../../workspace";
 
@@ -14,7 +16,15 @@ type DashboardRouteProps = {
   params: Promise<{ role: string; section?: string[] }>;
 };
 
-export default async function DashboardRolePage({ params }: DashboardRouteProps) {
+export default function DashboardRolePage({ params }: DashboardRouteProps) {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <DashboardRoleContent params={params} />
+    </Suspense>
+  );
+}
+
+async function DashboardRoleContent({ params }: DashboardRouteProps) {
   const { role, section = [] } = await params;
   if (!roles.has(role)) notFound();
   const callbackURL = `/dashboard/${role}${section.length ? `/${section.join("/")}` : ""}`;
