@@ -4,16 +4,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform } from "@/app/lib/platform-context";
 import { getErrorMessage } from "@/app/lib/api";
 import styles from "./payment.module.css";
 
 const formatPrice = (price: number) => `৳${price.toLocaleString("en-BD")}`;
-const stripeMode = process.env.NEXT_PUBLIC_PAYMENT_MODE === "stripe";
-
 export default function PaymentCheckout({ bookingId }: { bookingId: string }) {
   const router = useRouter();
-  const { ready, user, bookings, completePayment, notify } = useDemoPlatform();
+  const { ready, user, bookings, completePayment, notify } = usePlatform();
   const [processing, setProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const booking = bookings.find((item) => item.id === bookingId);
@@ -31,12 +29,10 @@ export default function PaymentCheckout({ bookingId }: { bookingId: string }) {
     setErrorMessage("");
     try {
       const result = await completePayment(booking.id);
-      if (result.redirectUrl) {
-        window.location.assign(result.redirectUrl);
-        return;
+      if (!result.redirectUrl) {
+        throw new Error("Stripe Checkout could not be started. Please try again.");
       }
-      notify("Demo payment completed. No real charge was made.", "success");
-      router.push(`/payment-success?bookingId=${encodeURIComponent(booking.id)}`);
+      window.location.assign(result.redirectUrl);
     } catch (error) {
       const message = getErrorMessage(
         error,
@@ -52,7 +48,7 @@ export default function PaymentCheckout({ bookingId }: { bookingId: string }) {
     return <main className={styles.checkoutPage}><p className={styles.loading}>Loading checkout…</p></main>;
   }
 
-  if (!booking || (user.role === "customer" && booking.customerEmail !== user.email)) {
+  if (!booking || user.role !== "customer" || booking.customerEmail !== user.email) {
     return (
       <main className={styles.checkoutPage}>
         <section className={styles.checkoutCard}>
@@ -108,23 +104,14 @@ export default function PaymentCheckout({ bookingId }: { bookingId: string }) {
             <div className={styles.totalLine}><span>Rental amount</span><strong>{formatPrice(booking.totalAmount)}</strong></div>
             <div className={styles.totalLine}><span>Service fee</span><strong>{formatPrice(0)}</strong></div>
             <div className={`${styles.totalLine} ${styles.grandTotal}`}><span>Total due</span><strong>{formatPrice(booking.totalAmount)}</strong></div>
-            <div className={styles.demoNotice}>
-              {stripeMode ? (
-                <>
-                  <strong>Secure Stripe checkout</strong>
-                  <span>You will be redirected to Stripe to complete this payment. VaraX does not store your card details.</span>
-                </>
-              ) : (
-                <>
-                  <strong>Development payment mode</strong>
-                  <span>No card details are collected and no real payment is processed. The booking is marked paid so the owner can confirm it.</span>
-                </>
-              )}
+            <div className={styles.paymentNotice}>
+              <strong>Secure Stripe checkout</strong>
+              <span>You will be redirected to Stripe to complete this payment. VaraX does not store your card details.</span>
             </div>
             {alreadyPaid ? (
-              <div className={styles.demoNotice}>
+              <div className={styles.paymentNotice}>
                 <strong>Payment already received</strong>
-                <span>Your payment is complete. The owner still needs to confirm this booking.</span>
+                <span>Payment is complete and the booking is confirmed. The owner can now coordinate the rental.</span>
               </div>
             ) : null}
             {errorMessage ? <p className={styles.paymentError} role="alert">{errorMessage}</p> : null}
@@ -135,16 +122,12 @@ export default function PaymentCheckout({ bookingId }: { bookingId: string }) {
               disabled={processing || alreadyPaid || booking.bookingStatus === "Cancelled"}
             >
               {processing
-                ? stripeMode
-                  ? "Opening Stripe…"
-                  : "Confirming demo payment…"
+                ? "Opening Stripe…"
                 : alreadyPaid
                   ? "Payment already complete"
                   : booking.bookingStatus === "Cancelled"
                     ? "Booking cancelled"
-                    : stripeMode
-                      ? "Continue to Stripe"
-                      : "Confirm demo payment"}
+                    : "Continue to Stripe"}
             </button>
             {alreadyPaid ? (
               <Link

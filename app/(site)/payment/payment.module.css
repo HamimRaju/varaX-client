@@ -184,7 +184,7 @@
   font-size: 1.15rem;
 }
 
-.demoNotice {
+.paymentNotice {
   display: grid;
   gap: 0.35rem;
   border: 1px solid #ead5a5;
@@ -196,7 +196,7 @@
   line-height: 1.5;
 }
 
-.demoNotice strong {
+.paymentNotice strong {
   font-size: 0.77rem;
 }
 
@@ -245,6 +245,14 @@
 
 .cancelLink:hover {
   color: var(--midnight-navy);
+}
+
+.cancelActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1.25rem;
 }
 
 .loading {
