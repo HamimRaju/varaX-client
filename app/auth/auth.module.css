@@ -307,42 +307,6 @@
   font-weight: 900;
 }
 
-.demoAccounts {
-  display: grid;
-  gap: 0.5rem;
-  border: 1px dashed #cfdddf;
-  border-radius: 0.7rem;
-  margin-top: 0.85rem;
-  padding: 0.7rem;
-  background: #f7faf9;
-  color: #73828a;
-  font-size: 0.68rem;
-  text-align: center;
-}
-
-.demoAccounts > div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.35rem;
-}
-
-.demoAccounts button {
-  min-height: 1.85rem;
-  border: 1px solid #d6e5e1;
-  border-radius: 999px;
-  padding: 0 0.55rem;
-  background: #fff;
-  color: #247966;
-  font-size: 0.64rem;
-  font-weight: 750;
-  cursor: pointer;
-}
-
-.demoAccounts button:hover {
-  background: #e8f5f1;
-}
-
 .uploadField {
   display: flex;
   flex-direction: column;

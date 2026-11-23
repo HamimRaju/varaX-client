@@ -5,7 +5,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useRef, useState, type DragEvent, type FormEvent } from "react";
 import { authClient } from "@/app/lib/auth-client";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform } from "@/app/lib/platform-context";
+import { api, getErrorMessage } from "@/app/lib/api";
 import styles from "./auth.module.css";
 
 type PlatformRole = "customer" | "owner" | "admin";
@@ -80,10 +81,11 @@ function UploadIcon() {
 
 export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
-  const { notify } = useDemoPlatform();
+  const { notify } = usePlatform();
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarError, setAvatarError] = useState("");
   const [signInMessage, setSignInMessage] = useState("");
@@ -122,7 +124,7 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
     setSignUpMessage("");
 
     try {
-      const callbackURL = getSuccessURL("customer");
+      const callbackURL = "/dashboard";
       const result = await authClient.signIn.social({
         provider: "google",
         callbackURL,
@@ -155,6 +157,7 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
     const reader = new FileReader();
     reader.onload = () => {
       setAvatar(typeof reader.result === "string" ? reader.result : null);
+      setAvatarFile(file);
       setAvatarError("");
     };
     reader.onerror = () => setAvatarError("That image could not be opened. Try another.");
@@ -205,8 +208,13 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
     const formData = new FormData(event.currentTarget);
     const password = String(formData.get("register-password"));
-    if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || password.length < 6) {
-      setSignUpMessage("Use at least 6 characters, including one uppercase and one lowercase letter.");
+    if (
+      !/[a-z]/.test(password) ||
+      !/[A-Z]/.test(password) ||
+      password.length < 6 ||
+      password.length > 128
+    ) {
+      setSignUpMessage("Use 6–128 characters, including one uppercase and one lowercase letter.");
       signUpLock.current = false;
       setSignUpPending(false);
       return;
@@ -222,11 +230,25 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
         name: String(formData.get("full-name")),
         email: String(formData.get("register-email")),
         password,
-        ...((avatarUrl || avatar) ? { image: avatarUrl || avatar || undefined } : {}),
+        ...(avatarUrl ? { image: avatarUrl } : {}),
       });
       if (result.error) throw result.error;
       const role = getPlatformRole(result.data?.user?.role);
-      notify("Your VaraX account is ready.", "success");
+      let imageUploadMessage = "";
+      if (avatarFile) {
+        try {
+          const image = await api.uploadImage(avatarFile);
+          await api.updateProfile("customer", { image });
+        } catch (error) {
+          imageUploadMessage = ` Your account was created, but the profile photo could not be saved: ${getErrorMessage(error)}`;
+        }
+      }
+      notify(
+        imageUploadMessage
+          ? `Your VaraX account is ready.${imageUploadMessage}`
+          : "Your VaraX account is ready.",
+        imageUploadMessage ? "info" : "success",
+      );
       router.replace(getSuccessURL(role));
     } catch (error) {
       setSignUpMessage(
@@ -377,7 +399,11 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
                 <input
                   autoComplete="url"
                   name="photo-url"
-                  onChange={(event) => setAvatarUrl(event.target.value)}
+                  onChange={(event) => {
+                    setAvatarUrl(event.target.value);
+                    setAvatarFile(null);
+                    setAvatar(null);
+                  }}
                   placeholder="https://example.com/photo.jpg"
                   type="url"
                   value={avatarUrl}
@@ -412,6 +438,7 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
                   <input
                     autoComplete="new-password"
                     minLength={6}
+                    maxLength={128}
                     name="register-password"
                     placeholder="Create a password"
                     pattern="(?=.*[a-z])(?=.*[A-Z]).{6,}"
