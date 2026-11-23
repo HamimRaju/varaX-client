@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Reveal from "@/app/components/reveal";
 import ReviewCarousel from "@/app/components/review-carousel";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform } from "@/app/lib/platform-context";
 import styles from "./home.module.css";
 
 const categories = [
@@ -47,8 +47,8 @@ const benefits = [
     kind: "bolt",
   },
   {
-    title: "Verified Owners",
-    description: "Rent with confidence",
+    title: "Local Owners",
+    description: "Browse owner-listed equipment",
     kind: "shield",
   },
   {
@@ -211,8 +211,8 @@ function CategoryField() {
 }
 
 export default function Home() {
-  const { listings } = useDemoPlatform();
-  const featuredItems = listings.filter((item) => item.status === "Approved").slice(0, 6);
+  const { featuredEquipment, ready } = usePlatform();
+  const featuredItems = featuredEquipment.slice(0, 6);
 
   return (
     <main className={styles.homePage}>
@@ -317,7 +317,7 @@ export default function Home() {
             </Link>
           </Reveal>
           <div className={styles.featuredGrid}>
-            {featuredItems.map((item, index) => (
+            {featuredItems.length ? featuredItems.map((item, index) => (
               <Reveal className={styles.featuredCard} delay={index * 0.045} key={item.id}>
                 <Link className={styles.featuredImage} href={`/equipment/${item.id}`}>
                   <Image src={item.image} alt={item.imageAlt} fill sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 30vw" unoptimized />
@@ -330,11 +330,15 @@ export default function Home() {
                   </div>
                   <p className={styles.featuredPrice}>
                     <strong>৳{item.price.toLocaleString("en-BD")}</strong>
-                    <span>/ day</span>
+                    <span>/ {item.rentals[0]?.toLowerCase() ?? "rental period"}</span>
                   </p>
                 </div>
               </Reveal>
-            ))}
+            )) : (
+              <p className={styles.featuredEmpty} aria-live="polite">
+                {ready ? "No approved equipment is listed yet." : "Loading approved equipment…"}
+              </p>
+            )}
           </div>
         </section>
 
@@ -408,9 +412,9 @@ export default function Home() {
         <section className={styles.reviewsSection} aria-labelledby="reviews-title">
           <Reveal className={styles.sectionHeading}>
             <div>
-              <span className={styles.sectionEyebrow}>REAL PROJECTS, REAL PEOPLE</span>
-              <h2 id="reviews-title">Trusted by teams across Bangladesh</h2>
-              <p>Renters use VaraX to get more done with the equipment they need.</p>
+              <span className={styles.sectionEyebrow}>CUSTOMER FEEDBACK</span>
+              <h2 id="reviews-title">Hear from VaraX renters</h2>
+              <p>Verified reviews will appear here after customers complete rentals.</p>
             </div>
           </Reveal>
           <ReviewCarousel />

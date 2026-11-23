@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform } from "@/app/lib/platform-context";
 
 const navigationLinks = [
   { label: "Home", href: "/" },
@@ -105,7 +105,7 @@ function ChevronDown() {
 
 export default function SiteNavbar() {
   const pathname = usePathname();
-  const { user, signOut, notify } = useDemoPlatform();
+  const { user, signOut, notify } = usePlatform();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);

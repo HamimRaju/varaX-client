@@ -474,6 +474,16 @@
   gap: 1rem;
 }
 
+.featuredEmpty {
+  grid-column: 1 / -1;
+  border: 1px dashed var(--border);
+  border-radius: 1rem;
+  margin: 0;
+  padding: 2rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
 .featuredCard {
   min-width: 0;
   overflow: hidden;

@@ -12,58 +12,10 @@ import styles from "./review-carousel.module.css";
 
 const testimonials = [
   {
-    name: "Nusrat Jahan",
-    role: "Photography renter",
-    location: "Dhaka",
-    rating: "5.0",
-    quote:
-      "Found a camera kit for a weekend shoot in minutes. Clear pricing and a helpful owner made the whole process easy.",
-    initials: "NJ",
-  },
-  {
-    name: "Imran Hossain",
-    role: "Farm owner",
-    location: "Gazipur",
-    rating: "5.0",
-    quote:
-      "We rented a tractor for harvest season instead of buying one. It was a practical, affordable option for our farm.",
-    initials: "IH",
-  },
-  {
-    name: "Sadia Rahman",
-    role: "Event organizer",
-    location: "Chattogram",
-    rating: "4.9",
-    quote:
-      "The flexible rental dates helped us organize our event without paying for equipment we only needed for a day.",
-    initials: "SR",
-  },
-  {
-    name: "Tanvir Ahmed",
-    role: "Small business owner",
-    location: "Dhaka",
-    rating: "5.0",
-    quote:
-      "Booking verified equipment from local owners feels straightforward. I can compare options before making a decision.",
-    initials: "TA",
-  },
-  {
-    name: "Ayesha Karim",
-    role: "Production coordinator",
-    location: "Sylhet",
-    rating: "5.0",
-    quote:
-      "We found the lighting and sound gear we needed for our launch, and everything was ready right on schedule.",
-    initials: "AK",
-  },
-  {
-    name: "Rakibul Islam",
-    role: "Independent contractor",
-    location: "Rajshahi",
-    rating: "4.9",
-    quote:
-      "Renting tools for each job keeps our costs manageable. The whole process was simple from search to pickup.",
-    initials: "RI",
+    name: "Customer feedback",
+    role: "Verified renter reviews",
+    quote: "Reviews from verified customers will appear here after completed rentals.",
+    initials: "VX",
   },
 ];
 
@@ -127,16 +79,7 @@ export default function ReviewCarousel() {
               </blockquote>
 
               <div className={styles.ratingRow}>
-                <span
-                  className={styles.ratingStars}
-                  aria-label={`${review.rating} out of 5 stars`}
-                >
-                  <span aria-hidden="true">★★★★★</span>
-                </span>
-                <strong>{review.rating}</strong>
-                <span className={styles.reviewCount}>
-                  {review.location}, Bangladesh
-                </span>
+                <span className={styles.reviewCount}>No reviews have been published yet.</span>
               </div>
             </article>
           </CarouselItem>
