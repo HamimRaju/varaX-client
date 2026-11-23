@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform } from "@/app/lib/platform-context";
 import { getErrorMessage } from "@/app/lib/api";
 import styles from "./payment-success.module.css";
 
@@ -26,7 +26,7 @@ function ClockIcon() {
 
 export default function PaymentSuccessClient({ bookingId }: { bookingId: string }) {
   const router = useRouter();
-  const { ready, bookings, user, getPaymentStatus, refresh } = useDemoPlatform();
+  const { ready, bookings, user, getPaymentStatus, refresh } = usePlatform();
   const [remoteStatus, setRemoteStatus] = useState<string | null>(null);
   const [statusError, setStatusError] = useState("");
   const [checking, setChecking] = useState(false);
@@ -62,7 +62,9 @@ export default function PaymentSuccessClient({ bookingId }: { bookingId: string 
   }, [bookingId, ready, router, user]);
 
   useEffect(() => {
-    if (ready && user && bookingId) void loadStatus();
+    if (!ready || !user || !bookingId) return;
+    const timer = window.setTimeout(() => void loadStatus(), 0);
+    return () => window.clearTimeout(timer);
   }, [bookingId, loadStatus, ready, user]);
 
   async function refreshStatus() {
@@ -73,8 +75,7 @@ export default function PaymentSuccessClient({ bookingId }: { bookingId: string 
     return <main className={styles.successPage}><p>Loading your booking…</p></main>;
   }
 
-  const localStatus = booking?.paymentStatus.toLowerCase();
-  const status = remoteStatus ?? localStatus ?? "pending";
+  const status = remoteStatus ?? "pending";
   const paid = status === "paid" || status === "succeeded";
   const failed = status === "failed";
   const refunded = status === "refunded";
@@ -90,7 +91,7 @@ export default function PaymentSuccessClient({ bookingId }: { bookingId: string 
           ? "Payment status unavailable"
           : "Payment processing";
   const message = paid
-    ? "Your payment is complete. The owner still needs to confirm this booking — you can follow the status from your dashboard."
+    ? "Your payment is complete and the booking is confirmed. You can follow rental progress from your dashboard."
     : refunded
       ? "This payment has been refunded. Contact VaraX support if you need help with the booking."
       : failed
