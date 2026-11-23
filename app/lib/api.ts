@@ -1,8 +1,6 @@
 import { getBackendAccessToken } from "@/app/lib/auth-client";
 
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:5000"
-).replace(/\/+$/, "");
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -73,6 +71,12 @@ async function request<T>(
   options: RequestOptions = {},
 ): Promise<ApiEnvelope<T>> {
   const { method = "GET", body, auth = false, signal, idempotencyKey } = options;
+  if (!API_BASE_URL) {
+    throw new ApiError(
+      "The API server is not configured. Set NEXT_PUBLIC_BACKEND_URL and rebuild the client.",
+      0,
+    );
+  }
 
   async function send(forceToken: boolean): Promise<Response> {
     const headers: Record<string, string> = { Accept: "application/json" };
@@ -85,6 +89,7 @@ async function request<T>(
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
+      cache: "no-store",
     });
   }
 
@@ -150,6 +155,7 @@ export type ApiEquipment = {
   isDeleted?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  rentalStats?: Record<string, number>;
 };
 
 export type ApiUserSummary = {
@@ -196,6 +202,24 @@ export type ApiBooking = {
   status?: string;
   paymentStatus?: string;
   createdAt?: string;
+  paymentSummary?: {
+    amount?: number;
+    currency?: string;
+    status?: string;
+    paidAt?: string;
+    paymentMethod?: string;
+    fulfillmentStatus?: string;
+  };
+};
+
+export type ApiDashboardOverview = Record<string, unknown>;
+
+export type ApiRevenueAnalytics = {
+  results?: Array<{ label: string; revenue: number; amount?: number }>;
+  earningsByMonth?: Array<{ month: string; amount: number }>;
+  monthlyRevenue?: Array<{ month: string; revenue: number; paymentCount?: number }>;
+  bookingsByMonth?: Array<{ month: string; count: number }>;
+  currency?: string;
 };
 
 export type ApiFavorite = {
@@ -205,7 +229,8 @@ export type ApiFavorite = {
 };
 
 export type ApiUser = {
-  _id: string;
+  _id?: string;
+  id?: string;
   name: string;
   email: string;
   role: string;
@@ -268,6 +293,25 @@ export type ApiEquipmentInput = {
 };
 
 export const api = {
+  async uploadImage(file: File) {
+    const form = new FormData();
+    form.set("image", file);
+    const response = await fetch("/api/images", {
+      method: "POST",
+      body: form,
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | ApiEnvelope<{ url: string }>
+      | null;
+    if (!response.ok || !payload?.success || !payload.data?.url) {
+      throw new ApiError(
+        payload?.message || "Image upload failed. Please try again.",
+        response.status,
+      );
+    }
+    return payload.data.url;
+  },
+
   async listEquipment(
     params: {
       search?: string;
@@ -280,16 +324,19 @@ export const api = {
       sort?: string;
       page?: number;
       limit?: number;
+      signal?: AbortSignal;
     } = {},
   ) {
+    const { signal, ...query } = params;
     return request<ApiEquipment[]>(
-      `/api/equipment${queryString({ ...params, limit: params.limit ?? 50 })}`,
+      `/api/equipment${queryString({ ...query, limit: query.limit ?? 9 })}`,
+      { signal },
     );
   },
 
-  async getEquipment(id: string) {
+  async getEquipment(id: string, auth = false) {
     return request<ApiEquipment>(`/api/equipment/${encodeURIComponent(id)}`, {
-      auth: true,
+      auth,
     });
   },
 
@@ -297,6 +344,15 @@ export const api = {
     return request<ApiEquipment[]>("/api/equipment/my-equipment", {
       auth: true,
     });
+  },
+
+  async listOwnerDashboardEquipment(
+    params: { page?: number; limit?: number } = {},
+  ) {
+    return request<ApiEquipment[]>(`/api/owner/dashboard/equipment${queryString({
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    })}`, { auth: true });
   },
 
   async createEquipment(input: ApiEquipmentInput) {
@@ -322,8 +378,11 @@ export const api = {
     });
   },
 
-  async listAdminEquipment() {
-    return request<ApiEquipment[]>("/api/admin/equipment?limit=50", {
+  async listAdminEquipment(params: { page?: number; limit?: number } = {}) {
+    return request<ApiEquipment[]>(`/api/admin/equipment${queryString({
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    })}`, {
       auth: true,
     });
   },
@@ -349,8 +408,11 @@ export const api = {
     );
   },
 
-  async listFavorites() {
-    return request<ApiFavorite[]>("/api/favorites?limit=50", { auth: true });
+  async listFavorites(params: { page?: number; limit?: number } = {}) {
+    return request<ApiFavorite[]>(`/api/favorites${queryString({
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    })}`, { auth: true });
   },
 
   async addFavorite(equipmentId: string) {
@@ -367,20 +429,29 @@ export const api = {
     );
   },
 
-  async listMyBookings() {
-    return request<ApiBooking[]>("/api/bookings/my-bookings?limit=50", {
+  async listMyBookings(params: { page?: number; limit?: number } = {}) {
+    return request<ApiBooking[]>(`/api/customer/dashboard/bookings${queryString({
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    })}`, {
       auth: true,
     });
   },
 
-  async listOwnerBookings() {
-    return request<ApiBooking[]>("/api/bookings/owner/requests?limit=50", {
+  async listOwnerBookings(params: { page?: number; limit?: number } = {}) {
+    return request<ApiBooking[]>(`/api/owner/dashboard/rental-requests${queryString({
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    })}`, {
       auth: true,
     });
   },
 
-  async listAdminBookings() {
-    return request<ApiBooking[]>("/api/admin/bookings?limit=50", {
+  async listAdminBookings(params: { page?: number; limit?: number } = {}) {
+    return request<ApiBooking[]>(`/api/admin/bookings${queryString({
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    })}`, {
       auth: true,
     });
   },
@@ -452,16 +523,11 @@ export const api = {
     });
   },
 
-  async completeDemoPayment(bookingId: string) {
-    return request<ApiPaymentStatus>("/api/payments/demo-complete", {
-      method: "POST",
-      auth: true,
-      body: { bookingId },
-    });
-  },
-
-  async listAdminUsers() {
-    return request<ApiUser[]>("/api/admin/users?limit=50", { auth: true });
+  async listAdminUsers(params: { page?: number; limit?: number } = {}) {
+    return request<ApiUser[]>(`/api/admin/users${queryString({
+      page: params.page ?? 1,
+      limit: params.limit ?? 50,
+    })}`, { auth: true });
   },
 
   async setUserRole(id: string, role: "customer" | "owner" | "admin") {
@@ -477,5 +543,78 @@ export const api = {
       `/api/admin/users/${encodeURIComponent(id)}/status`,
       { method: "PATCH", auth: true, body: { isActive } },
     );
+  },
+
+  async getCustomerOverview() {
+    return request<ApiDashboardOverview>("/api/customer/dashboard/overview", {
+      auth: true,
+    });
+  },
+
+  async getOwnerOverview() {
+    return request<ApiDashboardOverview>("/api/owner/dashboard/overview", {
+      auth: true,
+    });
+  },
+
+  async getAdminOverview() {
+    return request<ApiDashboardOverview>("/api/admin/dashboard/overview", {
+      auth: true,
+    });
+  },
+
+  async getOwnerAnalytics() {
+    return request<ApiDashboardOverview>("/api/owner/analytics/overview", {
+      auth: true,
+    });
+  },
+
+  async getAdminAnalytics() {
+    return request<ApiDashboardOverview>("/api/admin/analytics/overview", {
+      auth: true,
+    });
+  },
+
+  async getAdminBookingAnalytics() {
+    return request<ApiDashboardOverview>("/api/admin/analytics/bookings", {
+      auth: true,
+    });
+  },
+
+  async getOwnerRevenueAnalytics() {
+    return request<ApiRevenueAnalytics>("/api/owner/analytics/revenue?period=monthly", {
+      auth: true,
+    });
+  },
+
+  async getAdminRevenueAnalytics() {
+    return request<ApiRevenueAnalytics>("/api/admin/analytics/revenue?period=monthly", {
+      auth: true,
+    });
+  },
+
+  async getProfile(role: "customer" | "owner" | "admin") {
+    const endpoint = role === "owner"
+      ? "/api/owner/dashboard/profile"
+      : role === "admin"
+        ? "/api/admin/dashboard/profile"
+        : "/api/customer/dashboard/profile";
+    return request<ApiUser>(endpoint, { auth: true });
+  },
+
+  async updateProfile(
+    role: "customer" | "owner" | "admin",
+    updates: Pick<Partial<ApiUser>, "name" | "image" | "phone" | "address">,
+  ) {
+    const endpoint = role === "owner"
+      ? "/api/owner/dashboard/profile"
+      : role === "admin"
+        ? "/api/admin/dashboard/profile"
+        : "/api/customer/dashboard/profile";
+    return request<ApiUser>(endpoint, {
+      method: "PATCH",
+      auth: true,
+      body: updates,
+    });
   },
 };
