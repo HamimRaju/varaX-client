@@ -7,12 +7,13 @@ export default function PrivacyPage() {
   return (
     <InfoPage
       title="Privacy Policy"
-      intro="Your account and rental details should be handled with care and used only to support the marketplace experience."
+      intro="VaraX uses account and rental details to operate the equipment marketplace and protect customer and owner accounts."
       sections={[
-        { title: "Information in this preview", copy: "Demo profile, favorite, listing, and booking changes are stored in your browser so you can explore the interface." },
-        { title: "How information is used", copy: "In a production service, contact and booking information would be used to coordinate rentals, support accounts, and maintain platform safety." },
-        { title: "Browser storage", copy: "Clear this browser's local storage to remove locally saved demo data. Do not enter sensitive payment information in this preview." },
-        { title: "Before launch", copy: "A production privacy policy must be updated to describe the final backend, analytics, data retention, and user rights." },
+        { title: "Information we store", copy: "Account information, equipment listings, favorites, booking details, and payment status are stored in MongoDB and are used to provide the services you request." },
+        { title: "Authentication and payments", copy: "Better Auth manages sign-in sessions. Express APIs verify short-lived access tokens. Stripe processes card payments; VaraX does not receive or store card numbers." },
+        { title: "Image uploads", copy: "Profile and equipment images are uploaded to ImgBB and the resulting hosted image URL is saved with the corresponding account or listing." },
+        { title: "Browser storage and retention", copy: "The browser stores only the selected display theme for convenience. Authentication is held in secure HTTP-only cookies; account and rental data is not stored in browser local storage." },
+        { title: "Privacy contact", copy: "Before public launch, replace this summary with reviewed legal terms, a data-retention schedule, and a monitored privacy contact address." },
       ]}
     />
   );
