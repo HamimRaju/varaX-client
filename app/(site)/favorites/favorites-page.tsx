@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform } from "@/app/lib/platform-context";
 import { getErrorMessage } from "@/app/lib/api";
 import styles from "./favorites.module.css";
 
@@ -24,8 +24,18 @@ function HeartIcon() {
 
 export default function FavoritesPage() {
   const router = useRouter();
-  const { ready, user, favorites, listings, toggleFavorite, notify } = useDemoPlatform();
-  const savedItems = listings.filter((item) => favorites.includes(item.id) && item.status === "Approved");
+  const {
+    ready,
+    user,
+    favoriteListings,
+    dashboardPages,
+    loadDashboardPage,
+    toggleFavorite,
+    notify,
+  } = usePlatform();
+  const [pageLoading, setPageLoading] = useState(false);
+  const savedItems = favoriteListings;
+  const favoritePagination = dashboardPages.favorites;
 
   useEffect(() => {
     if (ready && !user) router.replace("/login?callbackURL=%2Ffavorites");
@@ -37,6 +47,18 @@ export default function FavoritesPage() {
       notify("Removed from favorites.", "success");
     } catch (error) {
       notify(getErrorMessage(error, "The favorite could not be removed."), "error");
+    }
+  }
+
+  async function changePage(page: number) {
+    if (pageLoading) return;
+    setPageLoading(true);
+    try {
+      await loadDashboardPage("favorites", page);
+    } catch (error) {
+      notify(getErrorMessage(error, "Favorites could not be loaded."), "error");
+    } finally {
+      setPageLoading(false);
     }
   }
 
@@ -53,7 +75,7 @@ export default function FavoritesPage() {
           </div>
           <span className={styles.favoriteCount}>
             <HeartIcon />
-            {savedItems.length} saved
+            {favoritePagination?.totalItems ?? savedItems.length} saved
           </span>
         </div>
 
@@ -75,7 +97,7 @@ export default function FavoritesPage() {
                     <Link href={`/equipment/${item.id}`}>{item.name}</Link>
                   </h2>
                   <p className={styles.itemPrice}>
-                    ৳{item.price.toLocaleString("en-BD")} <span>/ day</span>
+                    ৳{item.price.toLocaleString("en-BD")} <span>/ {item.rentals[0]?.toLowerCase() ?? "rental period"}</span>
                   </p>
                 </div>
                 <div className={styles.itemActions}>
@@ -97,6 +119,10 @@ export default function FavoritesPage() {
               </article>
             ))}
           </section>
+        ) : favoritePagination?.totalItems ? (
+          <section className={styles.emptyState} aria-live="polite">
+            <h2>Loading favorites…</h2>
+          </section>
         ) : (
           <section className={styles.emptyState}>
             <span className={styles.emptyHeart} aria-hidden="true">
@@ -109,6 +135,26 @@ export default function FavoritesPage() {
             </Link>
           </section>
         )}
+
+        {favoritePagination && favoritePagination.totalPages > 1 ? (
+          <nav className={styles.favoritePagination} aria-label="Favorite pages">
+            <button
+              type="button"
+              disabled={pageLoading || !favoritePagination.hasPrevPage}
+              onClick={() => void changePage(favoritePagination.currentPage - 1)}
+            >
+              Previous
+            </button>
+            <span>Page {favoritePagination.currentPage} of {favoritePagination.totalPages}</span>
+            <button
+              type="button"
+              disabled={pageLoading || !favoritePagination.hasNextPage}
+              onClick={() => void changePage(favoritePagination.currentPage + 1)}
+            >
+              Next
+            </button>
+          </nav>
+        ) : null}
 
         <div className={styles.pageFootnote}>
           <span className={styles.footnoteDot} />
