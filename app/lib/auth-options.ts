@@ -39,7 +39,6 @@ export function createAuthOptions(database: AuthDatabase) {
   const origins = [
     trustedOrigin(process.env.NEXT_PUBLIC_APP_URL),
     trustedOrigin(process.env.CLIENT_URL),
-    trustedOrigin(process.env.BACKEND_URL),
     trustedOrigin(baseURL),
   ];
 
@@ -86,6 +85,19 @@ export function createAuthOptions(database: AuthDatabase) {
       requireEmailVerification: false,
       autoSignIn: true,
       minPasswordLength: 6,
+      maxPasswordLength: 128,
+    },
+    rateLimit: {
+      enabled: true,
+      window: 60,
+      max: 100,
+      storage: "database",
+      customRules: {
+        "/sign-in/email": { window: 60, max: 8 },
+        "/sign-up/email": { window: 3_600, max: 5 },
+        "/sign-in/social": { window: 60, max: 10 },
+        "/sign-up/social": { window: 3_600, max: 10 },
+      },
     },
     ...(googleClientId && googleClientSecret
       ? {
