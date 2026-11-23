@@ -1,20 +1,25 @@
-import { headers } from "next/headers";
+import { getSessionCookie } from "better-auth/cookies";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { auth } from "./app/lib/auth";
 
 export async function proxy(request: NextRequest) {
-    const session = await auth.api.getSession({
-        headers: await headers(), 
-    });
-    const user = session?.user;
-    // console.log(user); user dekhte parbo j ke login ache
-    if(!user){
-        return NextResponse.redirect('/login',request.url)
-    } 
+  // This is an optimistic navigation check only. Express validates JWTs and
+  // current database roles for every protected data request.
+  if (getSessionCookie(request)) return NextResponse.next();
+
+  const callbackURL = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  const loginURL = new URL("/login", request.url);
+  loginURL.searchParams.set("callbackURL", callbackURL);
+  return NextResponse.redirect(loginURL);
 }
 
 export const config = {
-    // j j page secure korte chai
-    matcher: ['/app/components/info-page.module.css'],
+  matcher: [
+    "/dashboard/:path*",
+    "/favorites",
+    "/profile",
+    "/payment",
+    "/payment-success",
+    "/payment-cancel",
+  ],
 };

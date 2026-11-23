@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform } from "@/app/lib/platform-context";
 import styles from "./workspace.module.css";
 
 export default function DashboardEntry() {
   const router = useRouter();
-  const { ready, user } = useDemoPlatform();
+  const { ready, user } = usePlatform();
 
   useEffect(() => {
     if (ready && user) router.replace(`/dashboard/${user.role}`);
