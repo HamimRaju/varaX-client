@@ -18,6 +18,13 @@ npm run dev
 The frontend is available at `http://localhost:3000`. Run `npm run lint`,
 `npx tsc --noEmit`, and `npm run build` before deploying.
 
+For production, set the variables from `.env.example` in the client deployment
+environment and redeploy after changing any `NEXT_PUBLIC_` value. Point
+`NEXT_PUBLIC_BACKEND_URL` at the deployed Express API origin (without `/api`).
+The example MongoDB URI uses the existing `test` database. If you choose a
+different database name, update both client and server URIs and migrate the
+existing records first.
+
 ## Environment variables
 
 | Variable | Required | Purpose |
