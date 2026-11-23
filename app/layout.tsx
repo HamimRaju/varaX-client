@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
-import { DemoPlatformProvider } from "@/app/lib/demo-platform";
+import { Suspense } from "react";
+import { PlatformProvider } from "@/app/lib/platform-context";
 import "./globals.css";
 
 const inter = Inter({
@@ -29,7 +30,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${plusJakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <DemoPlatformProvider>{children}</DemoPlatformProvider>
+        <Suspense fallback={<main className="page-container"><p>Loading VaraX…</p></main>}>
+          <PlatformProvider>{children}</PlatformProvider>
+        </Suspense>
       </body>
     </html>
   );
