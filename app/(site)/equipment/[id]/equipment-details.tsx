@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useDemoPlatform } from "@/app/lib/demo-platform";
+import { usePlatform, type PlatformEquipment } from "@/app/lib/platform-context";
 import { getErrorMessage } from "@/app/lib/api";
 import styles from "./details.module.css";
 
@@ -75,29 +75,6 @@ function CalendarIcon() {
   );
 }
 
-function getDescription(category: string, name: string) {
-  if (name === "CAT Excavator 320D") {
-    return "Powerful and reliable excavator for construction and heavy-duty work. Well maintained and in excellent condition, ready for your next project in Dhaka.";
-  }
-
-  const descriptions: Record<string, string> = {
-    construction:
-      "A well-maintained machine ready to help keep your construction project moving. Flexible rental options and delivery available across Bangladesh.",
-    photography:
-      "Carefully maintained photography equipment for productions, events, and creative projects. Pick up in Dhaka or arrange delivery.",
-    vehicles:
-      "A dependable vehicle for business, family trips, and moving equipment around town. Daily and weekly rentals available.",
-    agriculture:
-      "Reliable farm equipment for seasonal work and everyday use. Serving local farms in and around Bangladesh.",
-    electronics:
-      "Ready-to-use technology for work, study, presentations, and events. Flexible daily and monthly rental plans.",
-    event:
-      "Event-ready equipment, tested before every rental. Ideal for weddings, community events, and productions.",
-  };
-
-  return descriptions[category] ?? "Quality equipment available for flexible rental across Bangladesh.";
-}
-
 function rentalDuration(
   rentalType: string,
   startDate: string,
@@ -130,9 +107,12 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
     toggleFavorite,
     createBooking,
     checkAvailability,
+    loadEquipment,
     notify,
-  } = useDemoPlatform();
-  const item = listings.find((equipmentItem) => equipmentItem.id === equipmentId);
+  } = usePlatform();
+  const [remoteItem, setRemoteItem] = useState<PlatformEquipment | null>(null);
+  const [itemLoading, setItemLoading] = useState(true);
+  const item = listings.find((equipmentItem) => equipmentItem.id === equipmentId) ?? remoteItem;
   const [activeImage, setActiveImage] = useState(0);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -153,10 +133,38 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
   const isFavorite = favorites.includes(equipmentId);
 
   useEffect(() => {
-    if (!item || !startDate || !endDate || endDate <= startDate) {
-      setAvailability(null);
-      setAvailabilityError("");
+    if (listings.some((equipmentItem) => equipmentItem.id === equipmentId)) {
       return;
+    }
+
+    let active = true;
+    const timer = window.setTimeout(() => {
+      setItemLoading(true);
+      void loadEquipment(equipmentId)
+        .then((loaded) => {
+          if (active) setRemoteItem(loaded);
+        })
+        .catch(() => {
+          if (active) setRemoteItem(null);
+        })
+        .finally(() => {
+          if (active) setItemLoading(false);
+        });
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [equipmentId, listings, loadEquipment]);
+
+  useEffect(() => {
+    if (!item || !startDate || !endDate || endDate <= startDate) {
+      const timerId = window.setTimeout(() => {
+        setAvailability(null);
+        setAvailabilityError("");
+      }, 0);
+      return () => window.clearTimeout(timerId);
     }
 
     const controller = new AbortController();
@@ -242,6 +250,13 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
   }
 
   if (!item) {
+    if (itemLoading) {
+      return (
+        <main className={styles.detailsPage}>
+          <div className={styles.notFound}><p>Loading equipment details…</p></div>
+        </main>
+      );
+    }
     return (
       <main className={styles.detailsPage}>
         <div className={styles.notFound}>
@@ -253,7 +268,10 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
     );
   }
 
-  if (item.status !== "Approved") {
+  const canViewUnapproved =
+    user?.role === "admin" ||
+    (user?.role === "owner" && item.ownerId === user.id);
+  if (item.status !== "Approved" && !canViewUnapproved) {
     return (
       <main className={styles.detailsPage}>
         <div className={styles.notFound}>
@@ -324,6 +342,7 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
   }
 
   async function handleFavorite() {
+    if (!item) return;
     if (!user) {
       notify("Sign in to save equipment to your favorites.", "info");
       router.push(
@@ -384,7 +403,7 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
           <section className={styles.ownerCard} aria-labelledby="owner-heading">
             <div className={styles.ownerCardHeading}>
               <h2 id="owner-heading">Owner Information</h2>
-              <span className={styles.verifiedMark} aria-label="Verified owner">
+              <span className={styles.verifiedMark} aria-label="VaraX owner account">
                 <CheckIcon />
               </span>
             </div>
@@ -394,7 +413,7 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
               </div>
               <div className={styles.ownerCopy}>
                 <strong>{ownerName}</strong>
-                <span>Top Rated Owner</span>
+                <span>Equipment owner</span>
               </div>
               <a
                 className={styles.messageButton}
@@ -423,18 +442,19 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
             </button>
           </div>
 
-          <div
-            className={styles.ratingLine}
-            aria-label={`${item.rating.toFixed(1)} out of 5 from ${item.reviews} reviews`}
-          >
-            <StarIcon />
-            <strong>{item.rating.toFixed(1)}</strong>
-            <span>({item.reviews} reviews)</span>
+          <div className={styles.ratingLine}>
+            {item.rating && item.reviews ? (
+              <>
+                <StarIcon />
+                <strong>{item.rating.toFixed(1)}</strong>
+                <span>({item.reviews} reviews)</span>
+              </>
+            ) : <span>No reviews yet</span>}
           </div>
 
           <p className={styles.priceLine}>
             <strong>{formatPrice(item.price)}</strong>
-            <span>/ day</span>
+            <span>/ {item.rentals[0]?.toLowerCase() ?? "rental period"}</span>
           </p>
 
           <div className={styles.quickFacts}>
@@ -452,7 +472,7 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
 
           <section className={styles.descriptionSection}>
             <h2>Description</h2>
-            <p>{item.description || getDescription(item.category, item.name)}</p>
+            <p>{item.description || "The owner has not added a description yet."}</p>
             <dl className={styles.specificationList}>
               <div><dt>Condition</dt><dd>{item.condition}</dd></div>
               <div><dt>Brand</dt><dd>{item.brand}</dd></div>
@@ -488,7 +508,7 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
             </div>
             <CalendarIcon />
           </div>
-          <p className={styles.bookingPrice}>{formatPrice(item.price)} <span>/ day</span></p>
+          <p className={styles.bookingPrice}>{formatPrice(item.price)} <span>/ {item.rentals[0]?.toLowerCase() ?? "rental period"}</span></p>
           <p className={styles.bookingAvailability}>
             {availabilityError
               ? availabilityError
@@ -665,9 +685,7 @@ export default function EquipmentDetails({ equipmentId }: { equipmentId: string 
               {submitting ? "Creating booking…" : "Continue to checkout"}
             </button>
             <p className={styles.bookingFootnote}>
-              {process.env.NEXT_PUBLIC_PAYMENT_MODE === "stripe"
-                ? "You will be redirected to Stripe to complete payment securely."
-                : "Development checkout — no real payment will be processed."}
+              You will be redirected to Stripe to complete payment securely.
             </p>
             </form>
           </section>
