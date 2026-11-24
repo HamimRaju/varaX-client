@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { authClient } from "@/app/lib/auth-client";
+import { getErrorMessage } from "@/app/lib/api";
 import { usePlatform } from "@/app/lib/platform-context";
 import styles from "./profile.module.css";
 
@@ -23,23 +25,29 @@ function ProfilePortrait() {
   );
 }
 
-export default function ProfilePage() {
+export default function ProfilePage({
+  dashboardRoute = false,
+}: {
+  dashboardRoute?: boolean;
+} = {}) {
   const router = useRouter();
   const { ready, user, updateProfile: saveProfile, notify } = usePlatform();
   const [name, setName] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const profilePath = dashboardRoute ? "/dashboard/profile" : "/profile";
 
   useEffect(() => {
     if (ready && !user) {
-      router.replace("/login?callbackURL=%2Fprofile");
+      router.replace(`/login?callbackURL=${encodeURIComponent(profilePath)}`);
       return;
     }
-  }, [ready, router, user]);
+  }, [profilePath, ready, router, user]);
 
   async function updateProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,6 +55,7 @@ export default function ProfilePage() {
     setSaving(true);
     setSaved(false);
     setSaveError("");
+    let profileDetailsSaved = false;
     try {
       await saveProfile({
         name: name ?? user.name,
@@ -54,10 +63,26 @@ export default function ProfilePage() {
         address: address ?? user.address ?? "",
         image: image ?? user.image ?? "",
       });
+      profileDetailsSaved = true;
+      const nextEmail = (email ?? user.email).trim().toLowerCase();
+      if (nextEmail !== user.email.toLowerCase()) {
+        const result = await authClient.changeEmail({
+          newEmail: nextEmail,
+          callbackURL: profilePath,
+        });
+        if (result.error) {
+          throw new Error(result.error.message || "The email address could not be changed.");
+        }
+        setEmail(nextEmail);
+      }
       setSaved(true);
       notify("Your profile has been updated.", "success");
-    } catch {
-      setSaveError("Your profile could not be updated. Please try again.");
+    } catch (error) {
+      setSaveError(
+        profileDetailsSaved
+          ? `Your profile details were saved, but the email could not be changed: ${getErrorMessage(error)}`
+          : getErrorMessage(error, "Your profile could not be updated. Please try again."),
+      );
     } finally {
       setSaving(false);
     }
@@ -67,7 +92,7 @@ export default function ProfilePage() {
     return <main className={styles.profilePage}><p>Loading your profile…</p></main>;
   }
   const profileName = name ?? user.name;
-  const profileEmail = user.email;
+  const profileEmail = email ?? user.email;
   const profilePhone = phone ?? user.phone ?? "";
   const profileAddress = address ?? user.address ?? "";
   const profileImage = image ?? user.image ?? "";
@@ -134,10 +159,16 @@ export default function ProfilePage() {
                 autoComplete="email"
                 type="email"
                 value={profileEmail}
-                readOnly
                 required
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setSaved(false);
+                }}
               />
-              <small>Email changes are managed through your sign-in provider.</small>
+              <small>
+                Email changes are verified when your current email is verified.
+                An email delivery service must be configured for verified accounts.
+              </small>
             </label>
             <label className={styles.field}>
               <span>Phone Number</span>

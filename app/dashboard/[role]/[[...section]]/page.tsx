@@ -34,5 +34,8 @@ async function DashboardRoleContent({ params }: DashboardRouteProps) {
     const path = section.length ? `${target}/${section.join("/")}` : target;
     redirect(path);
   }
+  if (section.length === 1 && section[0] === "profile") {
+    redirect("/dashboard/profile");
+  }
   return <DashboardWorkspace role={role as "customer" | "owner" | "admin"} section={section} />;
 }

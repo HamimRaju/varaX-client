@@ -65,12 +65,18 @@ export function createAuthOptions(database: AuthDatabase) {
     trustedOrigins: [...new Set(origins.filter((origin): origin is string => Boolean(origin)))],
     user: {
       modelName: "users",
+      changeEmail: {
+        enabled: true,
+        // Unverified email/password accounts can update their address without
+        // an email transport. Verified accounts still require verification.
+        updateEmailWithoutVerification: true,
+      },
       additionalFields: {
         role: {
           type: ["customer", "owner", "admin"],
           required: false,
           defaultValue: "customer",
-          input: false,
+          input: true,
         },
         isActive: {
           type: "boolean",
@@ -88,7 +94,8 @@ export function createAuthOptions(database: AuthDatabase) {
           before: async (user) => ({
             data: {
               ...user,
-              role: "customer",
+              // Public signup may request customer or owner, but never admin.
+              role: user.role === "owner" ? "owner" : "customer",
               isActive: true,
             },
           }),

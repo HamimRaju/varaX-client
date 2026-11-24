@@ -79,7 +79,13 @@ function UploadIcon() {
   );
 }
 
-export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
+export default function AuthScreen({
+  mode,
+  accountType = "customer",
+}: {
+  mode: "login" | "register";
+  accountType?: "customer" | "owner";
+}) {
   const router = useRouter();
   const { notify } = usePlatform();
   const [showSignInPassword, setShowSignInPassword] = useState(false);
@@ -113,6 +119,14 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
   function getSuccessURL(role: PlatformRole) {
     const callbackURL = getCallbackURL();
+    const isDashboardCallback = /^\/dashboard(?:\/|[?#]|$)/.test(callbackURL);
+
+    if (role === "customer") {
+      return callbackURL === "/" || isDashboardCallback
+        ? "/equipment"
+        : callbackURL;
+    }
+
     return callbackURL === "/" ? `/dashboard/${role}` : callbackURL;
   }
 
@@ -128,7 +142,11 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
       const result = await authClient.signIn.social({
         provider: "google",
         callbackURL:
-          requestedCallbackURL === "/" ? "/dashboard" : requestedCallbackURL,
+          requestedCallbackURL === "/"
+            ? mode === "register"
+              ? "/equipment"
+              : "/dashboard"
+            : requestedCallbackURL,
       });
       if (result.error) throw result.error;
     } catch (error) {
@@ -209,6 +227,7 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
 
     const formData = new FormData(event.currentTarget);
     const password = String(formData.get("register-password"));
+    const requestedRole = accountType === "owner" ? "owner" : "customer";
     if (
       !/[a-z]/.test(password) ||
       !/[A-Z]/.test(password) ||
@@ -231,15 +250,17 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
         name: String(formData.get("full-name")),
         email: String(formData.get("register-email")),
         password,
+        role: requestedRole,
+        phone: String(formData.get("register-phone")).trim(),
         ...(avatarUrl ? { image: avatarUrl } : {}),
       });
       if (result.error) throw result.error;
-      const role = getPlatformRole(result.data?.user?.role);
+      const role = getPlatformRole(result.data?.user?.role ?? requestedRole);
       let imageUploadMessage = "";
       if (avatarFile) {
         try {
           const image = await api.uploadImage(avatarFile);
-          await api.updateProfile("customer", { image });
+          await api.updateProfile(role, { image });
         } catch (error) {
           imageUploadMessage = ` Your account was created, but the profile photo could not be saved: ${getErrorMessage(error)}`;
         }
@@ -247,7 +268,9 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
       notify(
         imageUploadMessage
           ? `Your VaraX account is ready.${imageUploadMessage}`
-          : "Your VaraX account is ready.",
+          : role === "owner"
+            ? "Your VaraX owner account is ready."
+            : "Your VaraX account is ready.",
         imageUploadMessage ? "info" : "success",
       );
       router.replace(getSuccessURL(role));
@@ -352,8 +375,14 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
             >
             <div className={styles.cardHeader}>
               <BrandMark />
-              <h2 id="create-account-title">Create Account</h2>
-              <p>Join VaraX today</p>
+              <h2 id="create-account-title">
+                {accountType === "owner" ? "Create Owner Account" : "Create Account"}
+              </h2>
+              <p>
+                {accountType === "owner"
+                  ? "Join VaraX as an equipment owner"
+                  : "Join VaraX today"}
+              </p>
             </div>
 
             <form className={styles.authForm} onSubmit={handleSignUp}>
@@ -459,7 +488,9 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
               </label>
 
               <p className={styles.fieldLabel}>
-                New accounts start as customers. Owner and admin access is assigned by VaraX.
+                {accountType === "owner"
+                  ? "This registration creates an owner account. New equipment listings are submitted for review."
+                  : "New accounts start as customers. Admin access is assigned by VaraX."}
               </p>
 
               {signUpMessage ? (
@@ -473,18 +504,24 @@ export default function AuthScreen({ mode }: { mode: "login" | "register" }) {
               </button>
             </form>
 
-            <div className={styles.alternativeSignIn}>
-              <span>or register with</span>
-              <button
-                className={styles.googleButton}
-                disabled={signUpPending || googlePending}
-                type="button"
-                onClick={() => void handleGoogleSignIn()}
-              >
-                <span className={styles.googleMark} aria-hidden="true">G</span>
-                {googlePending ? "Connecting to Google…" : "Continue with Google"}
-              </button>
-            </div>
+            {accountType === "owner" ? (
+              <p className={styles.fieldLabel}>
+                Use email and password for owner registration. Google registration creates a customer account.
+              </p>
+            ) : (
+              <div className={styles.alternativeSignIn}>
+                <span>or register with</span>
+                <button
+                  className={styles.googleButton}
+                  disabled={signUpPending || googlePending}
+                  type="button"
+                  onClick={() => void handleGoogleSignIn()}
+                >
+                  <span className={styles.googleMark} aria-hidden="true">G</span>
+                  {googlePending ? "Connecting to Google…" : "Continue with Google"}
+                </button>
+              </div>
+            )}
 
             <p className={styles.cardFooter}>
               Already have an account? <Link href="/login">Sign In</Link>

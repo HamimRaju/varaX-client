@@ -427,7 +427,7 @@ export default function Home() {
             <h2>Turn idle equipment into your next opportunity.</h2>
             <p>Connect with local teams and put your equipment to work with VaraX.</p>
           </div>
-          <Link className={styles.ctaButton} href="/register">Join as an owner <span aria-hidden="true">→</span></Link>
+          <Link className={styles.ctaButton} href="/register?accountType=owner">Join as an owner <span aria-hidden="true">→</span></Link>
         </Reveal>
       </div>
     </main>

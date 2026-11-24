@@ -106,6 +106,7 @@ function ChevronDown() {
 export default function SiteNavbar() {
   const pathname = usePathname();
   const { user, signOut, notify } = usePlatform();
+  const canAccessDashboard = user?.role === "owner" || user?.role === "admin";
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
@@ -195,7 +196,9 @@ export default function SiteNavbar() {
           <div className="navbar-mobile-auth">
             {user ? (
               <>
-                <Link className="navbar-login" href={`/dashboard/${user.role}`} onClick={closeMenu}>Dashboard</Link>
+                {canAccessDashboard ? (
+                  <Link className="navbar-login" href={`/dashboard/${user.role}`} onClick={closeMenu}>Dashboard</Link>
+                ) : null}
                 <button className="navbar-login" onClick={handleLogout} type="button">Log out</button>
               </>
             ) : (
@@ -239,7 +242,9 @@ export default function SiteNavbar() {
               <Link className="icon-button" href="/profile" aria-label="My profile" aria-current={pathname === "/profile" ? "page" : undefined}>
                 <UserIcon />
               </Link>
-              <Link className="navbar-login" href={`/dashboard/${user.role}`}>Dashboard</Link>
+              {canAccessDashboard ? (
+                <Link className="navbar-login" href={`/dashboard/${user.role}`}>Dashboard</Link>
+              ) : null}
               <button className="navbar-login" onClick={handleLogout} type="button">Log out</button>
             </>
           ) : (

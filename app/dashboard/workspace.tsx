@@ -16,11 +16,45 @@ import { api, getErrorMessage, type ApiPagination } from "@/app/lib/api";
 import styles from "./workspace.module.css";
 
 const money = (value: number) => `৳${value.toLocaleString("en-BD")}`;
+const dateLabel = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("en-BD", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(date);
+};
 const roleNames: Record<PlatformRole, string> = {
   customer: "Customer",
-  owner: "Equipment owner",
-  admin: "Administrator",
+  owner: "Owner",
+  admin: "Admin",
 };
+
+function dashboardSectionHref(role: PlatformRole, section: string) {
+  if (role === "admin") {
+    if (section === "users") return "/dashboard/all-users";
+    if (section === "equipment") return "/dashboard/all-equipment";
+    if (section === "rentals") return "/dashboard/all-rentals";
+  }
+  if (role === "owner") {
+    if (section === "overview") return "/dashboard/owner";
+    if (section === "add-equipment") return "/dashboard/add-equipment";
+    if (section === "equipment") return "/dashboard/my-equipment";
+    if (section === "rentals") return "/dashboard/my-equipment-rental";
+    if (section === "profile") return "/dashboard/profile";
+  }
+  if (role === "customer") {
+    if (section === "rentals") return "/dashboard/my-rentals";
+    if (section === "favorites") return "/dashboard/favorites";
+    if (section === "profile") return "/dashboard/profile";
+  }
+  if (section === "profile") return "/dashboard/profile";
+  return section === "overview" ? `/dashboard/${role}` : `/dashboard/${role}/${section}`;
+}
 
 const navigation: Record<PlatformRole, { label: string; section: string; icon: string }[]> = {
   customer: [
@@ -33,7 +67,7 @@ const navigation: Record<PlatformRole, { label: string; section: string; icon: s
     { label: "Overview", section: "overview", icon: "◫" },
     { label: "Add equipment", section: "add-equipment", icon: "+" },
     { label: "My equipment", section: "equipment", icon: "▣" },
-    { label: "Equipment rentals", section: "rentals", icon: "▤" },
+    { label: "My Equipment Rental", section: "rentals", icon: "▤" },
     { label: "My profile", section: "profile", icon: "◉" },
   ],
   admin: [
@@ -264,7 +298,7 @@ export default function DashboardWorkspace({
       <div className={styles.profileShortcut}>
         <div className={styles.avatar}>{workspaceUser.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</div>
          <div><strong>{workspaceUser.name}</strong><span>{roleNames[role]} · VaraX workspace</span></div>
-        <Link className={styles.profileButton} href="/profile">Edit profile</Link>
+        <Link className={styles.profileButton} href="/dashboard/profile">Edit profile</Link>
       </div>
     );
   }
@@ -295,6 +329,34 @@ export default function DashboardWorkspace({
         <div className={styles.metricGrid}>
           {metrics.map((metric) => <MetricCard key={metric.label} {...metric} />)}
         </div>
+        {role === "owner" ? (
+          <section className={styles.dataCard}>
+            <div className={styles.cardHeading}>
+              <div>
+                <h2>Owner workspace</h2>
+                <p>Manage your listings, rental requests, and owner profile.</p>
+              </div>
+            </div>
+            <nav className={styles.ownerQuickLinks} aria-label="Owner dashboard shortcuts">
+              <Link className={styles.ownerQuickLink} href="/dashboard/add-equipment">
+                <span aria-hidden="true">＋</span>
+                <span>Add Equipment</span>
+              </Link>
+              <Link className={styles.ownerQuickLink} href="/dashboard/my-equipment">
+                <span aria-hidden="true">▣</span>
+                <span>My Equipment</span>
+              </Link>
+              <Link className={styles.ownerQuickLink} href="/dashboard/my-equipment-rental">
+                <span aria-hidden="true">▤</span>
+                <span>My Equipment Rental</span>
+              </Link>
+              <Link className={styles.ownerQuickLink} href="/dashboard/profile">
+                <span aria-hidden="true">◉</span>
+                <span>My Profile</span>
+              </Link>
+            </nav>
+          </section>
+        ) : null}
         {loadError ? (
           <div className={styles.emptyState} role="alert">
             <p>{loadError}</p>
@@ -330,7 +392,7 @@ export default function DashboardWorkspace({
         <section className={styles.dataCard}>
           <div className={styles.cardHeading}>
             <div><h2>{role === "admin" ? "Recent platform rentals" : role === "owner" ? "Recent equipment rentals" : "Recent rentals"}</h2><p>Latest rental activity from your VaraX account.</p></div>
-            <Link className={styles.tableAction} href={`${roleBase}/rentals`}>View all <span aria-hidden="true">→</span></Link>
+            <Link className={styles.tableAction} href={dashboardSectionHref(role, "rentals")}>View all <span aria-hidden="true">→</span></Link>
           </div>
           <BookingTable
             rows={recentBookings}
@@ -350,13 +412,20 @@ export default function DashboardWorkspace({
     return (
       <section className={styles.dataCard}>
         <div className={styles.cardHeading}><div><h2>{role === "customer" ? "My rentals" : role === "owner" ? "Equipment rentals" : "All rentals"}</h2><p>Rental dates, amounts, payment and booking status.</p></div></div>
-        <BookingTable
-          rows={rows}
-          showCustomer={role !== "customer"}
-          role={role}
-          onStatusChange={(id, bookingStatus, reason) => void setBookingStatus(id, bookingStatus, reason).catch((error) => notify(getErrorMessage(error), "error"))}
-          onCancel={(id) => void cancelBooking(id).catch((error) => notify(getErrorMessage(error), "error"))}
-        />
+        {role === "owner" ? (
+          <OwnerRentalTable
+            rows={rows}
+            onStatusChange={(id, bookingStatus, reason) => void setBookingStatus(id, bookingStatus, reason).catch((error) => notify(getErrorMessage(error), "error"))}
+          />
+        ) : (
+          <BookingTable
+            rows={rows}
+            showCustomer={false}
+            role={role}
+            onStatusChange={(id, bookingStatus, reason) => void setBookingStatus(id, bookingStatus, reason).catch((error) => notify(getErrorMessage(error), "error"))}
+            onCancel={(id) => void cancelBooking(id).catch((error) => notify(getErrorMessage(error), "error"))}
+          />
+        )}
         <ListPager
           pagination={dashboardPages.bookings}
           disabled={pageLoading}
@@ -402,18 +471,34 @@ export default function DashboardWorkspace({
 
   function renderEquipmentTable(items: PlatformEquipment[], admin = false) {
     if (!items.length) {
-      return <EmptyState title="No equipment found" detail={admin ? "New owner submissions will appear here for review." : "Add your first equipment listing to get started."} action={!admin ? <Link className={styles.smallPrimary} href={`${roleBase}/add-equipment`}>Add equipment</Link> : undefined} />;
+      return <EmptyState title="No equipment found" detail={admin ? "New owner submissions will appear here for review." : "Add your first equipment listing to get started."} action={!admin ? <Link className={styles.smallPrimary} href={dashboardSectionHref(role, "add-equipment")}>Add equipment</Link> : undefined} />;
     }
     return (
       <div className={styles.tableScroll}>
         <table className={styles.dataTable}>
-          <thead><tr><th>Equipment</th><th>Category</th><th>Rental price</th><th>Quantity</th><th>Status</th><th>Actions</th></tr></thead>
+          <thead>
+            <tr>
+              {admin ? <th>Owner information</th> : null}
+              <th>Equipment name</th>
+              <th>Category</th>
+              <th>Rental price</th>
+              <th>Available quantity</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
+                {admin ? (
+                  <td>
+                    <strong>{item.ownerName}</strong>
+                    <small className={styles.dateSubline}>{item.ownerEmail || "Owner email unavailable"}</small>
+                  </td>
+                ) : null}
                 <td><div className={styles.equipmentCell}><div className={styles.tableImage}><Image src={item.image} alt="" fill sizes="3rem" unoptimized /></div><span><strong>{item.name}</strong><small>{item.location}</small></span></div></td>
                 <td>{item.categoryLabel}</td>
-                <td>{money(item.price)} / day</td>
+                <td>{money(item.price)} / {item.rentals[0]?.toLowerCase() ?? "rental period"}</td>
                 <td>{item.quantity}</td>
                 <td><StatusPill>{item.status}</StatusPill></td>
                 <td>
@@ -425,7 +510,7 @@ export default function DashboardWorkspace({
                       </>
                     ) : null}
                     <EquipmentEdit item={item} onSave={(updates) => { void updateEquipment(item.id, updates).then(() => notify("Equipment details updated.")).catch((error) => notify(getErrorMessage(error), "error")); }} />
-                    <Link className={styles.tableAction} href={`/equipment/${item.id}`}>Details</Link>
+                    <Link className={styles.tableAction} href={`/equipment/${item.id}`}>View details</Link>
                     <button className={styles.tableActionDanger} type="button" onClick={() => {
                       if (window.confirm(`Remove ${item.name} from your listings?`)) {
                         void removeEquipment(item.id).then(() => notify("Equipment listing removed.", "info")).catch((error) => notify(getErrorMessage(error), "error"));
@@ -445,9 +530,10 @@ export default function DashboardWorkspace({
     return (
       <section className={styles.dataCard}>
         <div className={styles.cardHeading}><div><h2>All users</h2><p>Manage account roles and access.</p></div><span className={styles.liveBadge}>LIVE DATA</span></div>
-        <div className={styles.tableScroll}>
+        {loadError ? <p className={styles.formError} role="alert">{loadError}</p> : null}
+        {users.length ? <div className={styles.tableScroll}>
           <table className={styles.dataTable}>
-            <thead><tr><th>User</th><th>Email</th><th>Role</th><th>Registration date</th><th>Account</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Registration Date</th><th>Manage Users</th></tr></thead>
             <tbody>{users.map((member) => (
               <tr key={member.id}>
                 <td><strong>{member.name}</strong></td><td>{member.email}</td>
@@ -468,7 +554,7 @@ export default function DashboardWorkspace({
                     ))}
                   </select>
                 </td>
-                <td>{member.createdAt ?? "—"}</td>
+                <td>{dateLabel(member.createdAt)}</td>
                 <td>
                   <button
                     className={member.isActive === false ? styles.tableAction : styles.tableActionDanger}
@@ -488,7 +574,7 @@ export default function DashboardWorkspace({
               </tr>
             ))}</tbody>
           </table>
-        </div>
+        </div> : loadError ? null : <EmptyState title="No users found" detail="Registered VaraX accounts will appear here." />}
         <ListPager
           pagination={dashboardPages.users}
           disabled={pageLoading}
@@ -504,7 +590,7 @@ export default function DashboardWorkspace({
         onCreate={async (data) => {
           const listing = await addEquipment(data);
           notify(`${listing.name} was submitted for admin review.`, "success");
-          router.push(`${roleBase}/equipment`);
+          router.push(dashboardSectionHref("owner", "equipment"));
         }}
       />
     );
@@ -525,7 +611,8 @@ export default function DashboardWorkspace({
         <section className={styles.dataCard}>
           <div className={styles.cardHeading}>
             <div><h2>{role === "admin" ? "All equipment" : "My equipment"}</h2><p>{role === "admin" ? "Approve, reject, edit, or remove owner submissions." : "Update your listing details and track approval status."}</p></div>
-            {role === "owner" ? <Link className={styles.smallPrimary} href={`${roleBase}/add-equipment`}>+ Add equipment</Link> : null}
+            {role === "owner" ? <Link className={styles.smallPrimary} href={dashboardSectionHref(role, "add-equipment")}>+ Add equipment</Link> : null}
+            {role === "admin" ? <button className={styles.tableAction} type="button" onClick={() => void refresh()}>Refresh listings</button> : null}
           </div>
           {renderEquipmentTable(items, role === "admin")}
           <ListPager
@@ -541,7 +628,7 @@ export default function DashboardWorkspace({
         <section className={styles.dataCard}>
           <div className={styles.cardHeading}><div><h2>Profile settings</h2><p>Update your name, contact details, and address.</p></div></div>
           {renderProfileShortcut()}
-          <Link className={styles.smallPrimary} href="/profile">Edit profile details</Link>
+          <Link className={styles.smallPrimary} href="/dashboard/profile">Edit profile details</Link>
         </section>
       );
     }
@@ -558,7 +645,7 @@ export default function DashboardWorkspace({
           <div className={styles.sidebarLabel}>WORKSPACE</div>
           <nav className={styles.navList} aria-label={`${roleNames[role]} dashboard`}>
             {navItems.map((item) => {
-              const href = item.section === "overview" ? roleBase : `${roleBase}/${item.section}`;
+              const href = dashboardSectionHref(role, item.section);
               return (
                 <Link className={`${styles.navItem} ${activeSection === item.section ? styles.navActive : ""}`} href={href} key={item.section} aria-current={activeSection === item.section ? "page" : undefined} onClick={() => setMenuOpen(false)}>
                   <span aria-hidden="true">{item.icon}</span>{item.label}
@@ -581,7 +668,7 @@ export default function DashboardWorkspace({
           <header className={styles.workspaceTopbar}>
             <button className={styles.menuToggle} type="button" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>☰ <span>Menu</span></button>
             <div><p className={styles.breadcrumb}>Workspace <span>/</span> {activeLabel}</p><h1>{activeLabel}</h1><p className={styles.welcomeCopy}>Welcome back, {user.name.split(" ")[0]}.</p></div>
-            <Link className={styles.topProfile} href="/profile">{user.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</Link>
+            <Link className={styles.topProfile} href="/dashboard/profile">{user.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</Link>
           </header>
           {renderContent()}
           <footer className={styles.workspaceFooter}><span>© 2026 VaraX</span><span>Connected to your VaraX account</span></footer>
@@ -604,11 +691,114 @@ function BookingTable({
   onStatusChange: (id: string, status: Exclude<BookingStatus, "Pending" | "Cancelled">, reason?: string) => void;
   onCancel: (id: string) => void;
 }) {
-  if (!rows.length) return <EmptyState title="No rentals yet" detail="Bookings will appear here after you reserve equipment." action={<Link className={styles.smallPrimary} href="/equipment">Explore equipment</Link>} />;
+  if (!rows.length) {
+    return role === "admin"
+      ? <EmptyState title="No rentals found" detail="Platform bookings will appear here as customers reserve equipment." />
+      : <EmptyState title="No rentals yet" detail="Bookings will appear here after you reserve equipment." action={<Link className={styles.smallPrimary} href="/equipment">Explore equipment</Link>} />;
+  }
+  if (role === "admin") {
+    return (
+      <div className={styles.tableScroll}>
+        <table className={styles.dataTable}>
+          <thead>
+            <tr>
+              <th>Customer Information</th>
+              <th>Owner Information</th>
+              <th>Equipment Name</th>
+              <th>Rental Duration</th>
+              <th>Booking Amount</th>
+              <th>Payment Status</th>
+              <th>Booking Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((booking) => (
+              <tr key={booking.id}>
+                <td>
+                  <strong>{booking.customerName}</strong>
+                  <small className={styles.dateSubline}>
+                    {booking.customerEmail || "Email unavailable"}
+                  </small>
+                </td>
+                <td>
+                  <strong>{booking.ownerName}</strong>
+                  <small className={styles.dateSubline}>
+                    {booking.ownerEmail || "Email unavailable"}
+                  </small>
+                </td>
+                <td>{booking.equipmentName}</td>
+                <td>
+                  <strong>{booking.startDate} – {booking.endDate}</strong>
+                  {booking.rentalDuration ? (
+                    <small className={styles.dateSubline}>
+                      {booking.rentalDuration} {booking.rentalType?.toLowerCase() ?? "period"}
+                      {booking.rentalDuration === 1 ? "" : "s"}
+                    </small>
+                  ) : null}
+                </td>
+                <td><strong>{money(booking.totalAmount)}</strong></td>
+                <td><StatusPill>{booking.paymentStatus}</StatusPill></td>
+                <td><StatusPill>{booking.bookingStatus}</StatusPill></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+  if (role === "customer") {
+    return (
+      <div className={styles.tableScroll}>
+        <table className={styles.dataTable}>
+          <thead>
+            <tr>
+              <th>Equipment Name</th>
+              <th>Rental Start Date</th>
+              <th>Rental End Date</th>
+              <th>Booking Date</th>
+              <th>Total Amount</th>
+              <th>Payment Status</th>
+              <th>Booking Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((booking) => (
+              <tr key={booking.id}>
+                <td><Link href={`/equipment/${booking.equipmentId}`}>{booking.equipmentName}</Link></td>
+                <td>{booking.startDate}</td>
+                <td>{booking.endDate}</td>
+                <td>{booking.bookingDate}</td>
+                <td><strong>{money(booking.totalAmount)}</strong></td>
+                <td><StatusPill>{booking.paymentStatus}</StatusPill></td>
+                <td>
+                  <div className={styles.actionStack}>
+                    <StatusPill>{booking.bookingStatus}</StatusPill>
+                    {(booking.bookingStatus === "Pending" ||
+                      (booking.bookingStatus === "Confirmed" &&
+                        booking.startDate > new Date().toISOString().slice(0, 10))) ? (
+                      <button
+                        className={styles.tableActionDanger}
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm("Cancel this rental booking?")) onCancel(booking.id);
+                        }}
+                      >
+                        Cancel booking
+                      </button>
+                    ) : null}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
   return (
-    <div className={styles.tableScroll}>
-      <table className={styles.dataTable}>
-        <thead><tr><th>Equipment & renter</th><th>Rental dates</th><th>Booking date</th><th>Amount</th><th>Payment</th><th>Booking</th>{role === "admin" ? <th>Owner</th> : null}</tr></thead>
+      <div className={styles.tableScroll}>
+        <table className={styles.dataTable}>
+        <thead><tr><th>Equipment & renter</th><th>Rental dates</th><th>Booking date</th><th>Amount</th><th>Payment</th><th>Booking</th></tr></thead>
         <tbody>{rows.map((booking) => (
           <tr key={booking.id}>
             <td><div className={styles.equipmentCell}><div className={styles.tableImage}><Image src={booking.equipmentImage} alt="" fill sizes="3rem" unoptimized /></div><span><strong>{booking.equipmentName}</strong><small>{showCustomer ? booking.customerName : booking.id}</small></span></div></td>
@@ -620,27 +810,75 @@ function BookingTable({
               {role === "owner" ? (
                 <OwnerBookingStatus booking={booking} onStatusChange={onStatusChange} />
               ) : (
-                <div className={styles.actionStack}>
-                  <StatusPill>{booking.bookingStatus}</StatusPill>
-                  {role === "customer" &&
-                  (booking.bookingStatus === "Pending" ||
-                    (booking.bookingStatus === "Confirmed" && booking.startDate > new Date().toISOString().slice(0, 10))) ? (
-                    <button
-                      className={styles.tableActionDanger}
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm("Cancel this rental booking?")) onCancel(booking.id);
-                      }}
-                    >
-                      Cancel booking
-                    </button>
-                  ) : null}
-                </div>
+                <StatusPill>{booking.bookingStatus}</StatusPill>
               )}
             </td>
-            {role === "admin" ? <td>{booking.ownerName}</td> : null}
           </tr>
         ))}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function OwnerRentalTable({
+  rows,
+  onStatusChange,
+}: {
+  rows: ReturnType<typeof usePlatform>["bookings"];
+  onStatusChange: (id: string, status: Exclude<BookingStatus, "Pending" | "Cancelled">, reason?: string) => void;
+}) {
+  if (!rows.length) {
+    return <EmptyState title="No equipment rentals yet" detail="Bookings for your equipment will appear here." />;
+  }
+
+  return (
+    <div className={styles.tableScroll}>
+      <table className={styles.dataTable}>
+        <thead>
+          <tr>
+            <th>Customer information</th>
+            <th>Equipment information</th>
+            <th>Rental duration</th>
+            <th>Required quantity</th>
+            <th>Booking amount</th>
+            <th>Payment status</th>
+            <th>Booking status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((booking) => {
+            const duration = booking.rentalDuration
+              ? `${booking.rentalDuration} ${booking.rentalType ?? "billing"} period${booking.rentalDuration === 1 ? "" : "s"}`
+              : `${booking.startDate} – ${booking.endDate}`;
+            return (
+              <tr key={booking.id}>
+                <td>
+                  <strong>{booking.customerName}</strong>
+                  <small className={styles.dateSubline}>{booking.contact || booking.customerEmail || "Customer"}</small>
+                </td>
+                <td>
+                  <div className={styles.equipmentCell}>
+                    <div className={styles.tableImage}>
+                      <Image src={booking.equipmentImage} alt="" fill sizes="3rem" unoptimized />
+                    </div>
+                    <span>
+                      <strong>{booking.equipmentName}</strong>
+                      <small>{booking.equipmentCategory || booking.equipmentLocation || "Equipment"}</small>
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  {duration}
+                  <small className={styles.dateSubline}>{booking.startDate} – {booking.endDate}</small>
+                </td>
+                <td>{booking.quantity}</td>
+                <td><strong>{money(booking.totalAmount)}</strong></td>
+                <td><StatusPill>{booking.paymentStatus}</StatusPill></td>
+                <td><OwnerBookingStatus booking={booking} onStatusChange={onStatusChange} /></td>
+              </tr>
+            );
+          })}
+        </tbody>
       </table>
     </div>
   );
@@ -706,7 +944,7 @@ function MonthlyBars({ data, revenue = false }: { data: Array<{ month: string; v
 }
 
 function AddEquipmentForm({ onCreate }: { onCreate: (input: Parameters<ReturnType<typeof usePlatform>["addEquipment"]>[0]) => Promise<unknown> }) {
-  const [selectedRental, setSelectedRental] = useState<RentalType>("Daily");
+  const { user } = usePlatform();
   const [message, setMessage] = useState("");
   const [imagePreview, setImagePreview] = useState("");
   const [imageError, setImageError] = useState("");
@@ -734,7 +972,7 @@ function AddEquipmentForm({ onCreate }: { onCreate: (input: Parameters<ReturnTyp
         categoryLabel: `${categoryLabel} Equipment`,
         location: String(data.get("location")),
         price: Number(data.get("price")),
-        rentals: [selectedRental],
+        rentals: [String(data.get("rentalType")) as RentalType],
         quantity: Number(data.get("quantity")),
         condition: String(data.get("condition")),
         brand: String(data.get("brand")),
@@ -751,18 +989,26 @@ function AddEquipmentForm({ onCreate }: { onCreate: (input: Parameters<ReturnTyp
 
   return (
     <section className={styles.formCard}>
-      <div className={styles.cardHeading}><div><h2>Add equipment</h2><p>Your listing will be marked pending until it is reviewed.</p></div><StatusPill>Pending</StatusPill></div>
+      <div className={styles.cardHeading}><div><h2>Add equipment</h2><p>Your signed-in owner account is attached automatically; new listings stay pending until review.</p></div><StatusPill>Pending</StatusPill></div>
       <form className={styles.equipmentForm} onSubmit={submit}>
+        <div className={`${styles.formWide} ${styles.ownerInfo}`}>
+          <div>
+            <strong>Owner information</strong>
+            <span>{user?.name ?? "Signed-in owner"}</span>
+          </div>
+          <span>{user?.email ?? "Attached to your account"}</span>
+        </div>
         <label>Equipment name<input name="name" placeholder="e.g. Canon EOS R6" required maxLength={90} /></label>
         <label>Category<select name="category" defaultValue="construction">{categories.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>
-        <label>Location<input name="location" placeholder="Area, city" required /></label>
-        <label>Rental price (৳)<input name="price" type="number" min="1" required placeholder="2500" /></label>
+        <label>Location<input name="location" maxLength={160} placeholder="Area, city" required /></label>
+        <label>Rental price (৳)<input name="price" type="number" min="0.01" step="0.01" required placeholder="2500" /></label>
         <label>Available quantity<input name="quantity" type="number" min="1" required defaultValue="1" /></label>
-        <label>Condition<input name="condition" placeholder="Excellent, well maintained" required /></label>
-        <label>Brand<input name="brand" placeholder="Brand" required /></label>
-        <label>Model<input name="model" placeholder="Model or year" required /></label>
-        <label className={styles.formWide}>Equipment image URL<input name="image" type="url" placeholder="https://…" /></label>
-        <label className={styles.formWide}>Or upload an equipment image<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => {
+        <label>Equipment condition<input name="condition" maxLength={120} placeholder="Excellent, well maintained" required /></label>
+        <label>Brand<input name="brand" maxLength={100} placeholder="Brand" required /></label>
+        <label>Model<input name="model" maxLength={100} placeholder="Model or year" required /></label>
+        <label>Rental type<select name="rentalType" defaultValue="Daily">{rentalTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label>
+        <label className={styles.formWide}>Equipment image<input name="image" type="url" placeholder="Paste an image URL or upload below" /></label>
+        <label className={styles.formWide}>Upload equipment image (PNG, JPEG, WEBP, or GIF; max 5 MB)<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(event) => {
           const file = event.target.files?.[0];
           if (!file) return;
           if (!file.type.startsWith("image/") || file.size > 5 * 1024 * 1024) {
@@ -782,7 +1028,6 @@ function AddEquipmentForm({ onCreate }: { onCreate: (input: Parameters<ReturnTyp
         }} /></label>
         {imagePreview ? <div className={styles.imagePreview}><Image src={imagePreview} alt="Equipment preview" width={100} height={80} unoptimized /></div> : null}
         {imageError ? <p className={styles.formError} role="alert">{imageError}</p> : null}
-        <fieldset className={styles.rentalTypes}><legend>Rental type</legend>{rentalTypes.map((type) => <label key={type}><input type="radio" name="rentalType" checked={selectedRental === type} onChange={() => setSelectedRental(type)} />{type}</label>)}</fieldset>
         <label className={styles.formWide}>Description<textarea name="description" rows={4} maxLength={1000} required placeholder="Describe the equipment, its condition, and what it is suitable for." /></label>
         <label className={styles.formWide}>Rental terms and conditions<textarea name="terms" rows={3} maxLength={700} required placeholder="Add pickup, deposit, and return conditions." /></label>
         {message ? <p className={styles.formError} role="alert">{message}</p> : null}

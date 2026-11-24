@@ -52,6 +52,7 @@ export type PlatformEquipment = Omit<Equipment, "id"> & {
   id: string;
   ownerId: string;
   ownerName: string;
+  ownerEmail?: string;
   ownerImage?: string;
   status: ListingStatus;
   quantity: number;
@@ -72,10 +73,14 @@ export type RentalBooking = {
   customerEmail: string;
   ownerId: string;
   ownerName: string;
+  ownerEmail: string;
   startDate: string;
   endDate: string;
   bookingDate: string;
   quantity: number;
+  rentalDuration?: number;
+  equipmentCategory?: string;
+  equipmentLocation?: string;
   totalAmount: number;
   paymentStatus: PaymentStatus;
   bookingStatus: BookingStatus;
@@ -208,8 +213,9 @@ function toRentalType(value: string | undefined): RentalType {
 }
 
 function toListingStatus(value: string | undefined): ListingStatus {
-  if (value === "pending") return "Pending";
-  if (value === "rejected") return "Rejected";
+  const normalized = value?.toLowerCase();
+  if (normalized === "pending") return "Pending";
+  if (normalized === "rejected") return "Rejected";
   return "Approved";
 }
 
@@ -258,6 +264,14 @@ function nameOf(value: unknown): string {
   return "";
 }
 
+function emailOf(value: unknown): string | undefined {
+  if (value && typeof value === "object" && "email" in value) {
+    const email = (value as { email?: unknown }).email;
+    return typeof email === "string" && email ? email : undefined;
+  }
+  return undefined;
+}
+
 function imageOf(value: unknown): string | undefined {
   if (value && typeof value === "object" && "image" in value) {
     const image = (value as { image?: unknown }).image;
@@ -272,12 +286,13 @@ export function mapEquipment(
 ): PlatformEquipment {
   const category = toCategorySlug(raw.category);
   const quantity = Number(raw.availableQuantity) || 0;
+  const ownerEmail = emailOf(raw.ownerId);
 
   return {
     id: raw._id,
     name: raw.name,
     category,
-    categoryLabel: raw.category || CATEGORY_LABELS[category],
+    categoryLabel: CATEGORY_LABELS[category],
     image: raw.image || "/varax-home-hero.png",
     imageAlt: raw.name,
     price: Number(raw.price) || 0,
@@ -291,6 +306,7 @@ export function mapEquipment(
       nameOf(raw.ownerId) ||
       fallback?.ownerName ||
       "VaraX verified owner",
+    ...(ownerEmail ? { ownerEmail } : {}),
     ...(raw.ownerImage || imageOf(raw.ownerId)
       ? { ownerImage: raw.ownerImage ?? imageOf(raw.ownerId) }
       : {}),
@@ -340,6 +356,8 @@ function mapBooking(
     equipmentName: equipment?.name || listing?.name || "Equipment",
     equipmentImage:
       equipment?.image || listing?.image || "/varax-home-hero.png",
+    equipmentCategory: equipment?.category || "",
+    equipmentLocation: equipment?.location || "",
     customerName:
       customer?.name || (ownBooking ? fallback.user?.name : "") || "Customer",
     customerEmail:
@@ -350,11 +368,15 @@ function mapBooking(
       listing?.ownerName ||
       fallback.ownerName ||
       "VaraX verified owner",
+    ownerEmail: owner?.email || "",
     startDate: dateOnly(raw.startDate),
     endDate: dateOnly(raw.endDate),
     bookingDate: dateOnly(raw.createdAt),
     quantity: Number(raw.quantity) || 1,
-    totalAmount: Number(raw.totalAmount) || 0,
+    totalAmount: Number(raw.totalAmount ?? raw.amount) || 0,
+    ...(typeof raw.rentalDuration === "number"
+      ? { rentalDuration: raw.rentalDuration }
+      : {}),
     paymentStatus: toPaymentStatus(raw.paymentStatus),
     bookingStatus: toBookingStatus(raw.bookingStatus ?? raw.status),
     contact: raw.contactNumber || "",
@@ -872,6 +894,27 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setFavorites((current) =>
         current.filter((favoriteId) => favoriteId !== id),
       );
+      setDashboardPages((current) => {
+        const pagination = current.equipment;
+        if (!pagination) return current;
+        const totalItems = Math.max(0, pagination.totalItems - 1);
+        const totalPages = Math.ceil(totalItems / pagination.limit);
+        const currentPage = Math.min(
+          pagination.currentPage,
+          Math.max(1, totalPages),
+        );
+        return {
+          ...current,
+          equipment: {
+            ...pagination,
+            currentPage,
+            totalItems,
+            totalPages,
+            hasNextPage: currentPage < totalPages,
+            hasPrevPage: currentPage > 1,
+          },
+        };
+      });
     },
     [user],
   );
@@ -892,8 +935,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setPublicListings((current) =>
         current.map((item) => (item.id === id ? listing : item)),
       );
+      if (status === "Approved") await loadPublic();
     },
-    [],
+    [loadPublic],
   );
 
   const setUserRole = useCallback(async (id: string, nextRole: PlatformRole) => {

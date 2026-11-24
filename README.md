@@ -21,9 +21,9 @@ The frontend is available at `http://localhost:3000`. Run `npm run lint`,
 For production, set the variables from `.env.example` in the client deployment
 environment and redeploy after changing any `NEXT_PUBLIC_` value. Point
 `NEXT_PUBLIC_BACKEND_URL` at the deployed Express API origin (without `/api`).
-The example MongoDB URI uses the existing `test` database. If you choose a
-different database name, update both client and server URIs and migrate the
-existing records first.
+The example MongoDB URI targets the existing `varax` database. The client
+(Better Auth) and Express server must use the same database name so accounts,
+equipment, and bookings stay in sync.
 
 ## Environment variables
 
@@ -34,6 +34,7 @@ existing records first.
 | `NEXT_PUBLIC_APP_URL` | Yes | Same public Next.js origin, exposed for the Better Auth browser client. |
 | `CLIENT_URL` | Yes | Same client origin; trusted by Better Auth and configured as the server's CORS origin. |
 | `MONGODB_URI` | Yes | MongoDB Atlas or local replica-set connection. Must point to the same database used by the Express API. |
+| `MONGODB_DB_NAME` | No | MongoDB database name; defaults to `varax` in both client and server. |
 | `JWT_ISSUER` | Yes | Must exactly match the server's `JWT_ISSUER`. Usually the client origin. |
 | `JWT_AUDIENCE` | Yes | Must exactly match the server's `JWT_AUDIENCE` (example: `varax-api`). |
 | `GOOGLE_CLIENT_ID` | For Google sign-in | Google OAuth web client ID. |
@@ -56,10 +57,12 @@ credential is stored in `localStorage`.
 ## Authentication and roles
 
 Email/password and Google sign-in are hosted by Better Auth in this application.
-New registrations and new Google accounts are assigned the `customer` role;
-public registration cannot set a role. The JWT plugin exposes `/api/auth/token`
-and `/api/auth/jwks`. Express verifies the JWT through the configured remote
-JWKS URL and reads the user's current role and active status from MongoDB.
+Regular and Google registrations create `customer` accounts. The **Join as an
+owner** flow creates an `owner` account using email and password. Public signup
+cannot create `admin` accounts; administrators must be assigned by VaraX. The
+JWT plugin exposes `/api/auth/token` and `/api/auth/jwks`. Express verifies the
+JWT through the configured remote JWKS URL and reads the user's current role
+and active status from MongoDB.
 
 Promote the first administrator manually after registering the account. Using
 a trusted MongoDB administration tool, update only that user's record in the

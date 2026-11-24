@@ -9,7 +9,7 @@ if (!mongodbUri) {
 }
 
 const client = new MongoClient(mongodbUri);
-const db = client.db();
+const db = client.db(process.env.MONGODB_DB_NAME?.trim() || "varax");
 
 export const auth = betterAuth(
     createAuthOptions(mongodbAdapter(db, { client })),

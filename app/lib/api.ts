@@ -194,10 +194,11 @@ export type ApiBooking = {
   additionalNotes?: string;
   notes?: string;
   rentalType?: string;
-  pricePerUnit?: number;
   rentalDuration?: number;
+  pricePerUnit?: number;
   subtotal?: number;
-  totalAmount: number;
+  amount?: number;
+  totalAmount?: number;
   bookingStatus?: string;
   status?: string;
   paymentStatus?: string;
