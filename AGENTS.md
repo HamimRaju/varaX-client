@@ -10,14 +10,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project workflow
 
-- This is a single npm package; use `npm ci` and keep `package-lock.json` in sync. Node.js 20.19+ is required by the MongoDB 7 dependency.
-- Run `npm run dev`, `npm run lint`, `npx tsc --noEmit`, or `npm run build` as needed. For focused linting, use `npx eslint app/path/to/file.tsx`.
+- Single npm package; Node.js 20.19+. Use `npm ci` and keep `package-lock.json` in sync.
+- Commands: `npm run dev`, `npm run lint`, `npx eslint app/path/to/file.tsx` (focused lint), `npx tsc --noEmit`, `npm run build`.
 - No test script or test-runner configuration is present.
 
-## App and auth
+## App boundaries and auth
 
-- The Next.js App Router lives in `app/`. `app/api/auth/[...all]/route.ts` forwards GET/POST to Better Auth configured in `app/lib/auth.ts`.
-- Auth currently connects to MongoDB at `mongodb://localhost:27017/database`; local auth work therefore needs MongoDB available there. Keep server auth changes coordinated with `app/lib/auth-client.ts`.
+- `app/(site)` holds public pages; `app/dashboard` holds role workspaces. Marketplace data comes from the Express API via `app/lib/api.ts`, not local fixtures.
+- Configure local env from `.env.example`. Better Auth's MongoDB connection is in `app/lib/auth.ts`; client/server must share a database (`MONGODB_DB_NAME`, default `varax`). `NEXT_PUBLIC_BACKEND_URL` is the API origin without `/api`.
+- `proxy.ts` only checks for a session cookie to guide navigation; Express verifies JWTs and current roles for protected data. Do not treat the proxy check as authorization.
 
 <!-- BEGIN:nextjs-agent-feedback -->
 
