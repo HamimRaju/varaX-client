@@ -123,6 +123,7 @@ type Toast = { id: number; message: string; tone: "success" | "error" | "info" }
 
 export type PlatformContextValue = {
   ready: boolean;
+  roleDataLoading: boolean;
   user: PlatformUser | null;
   users: PlatformUser[];
   listings: PlatformEquipment[];
@@ -440,6 +441,10 @@ function equipmentPayload(input: Partial<NewEquipment>) {
 export function PlatformProvider({ children }: { children: ReactNode }) {
   const { data: authSession, isPending: authPending } = authClient.useSession();
   const pathname = usePathname();
+  const needsPublicEquipment =
+    pathname === "/" ||
+    pathname === "/equipment" ||
+    pathname.startsWith("/equipment/");
   const [publicListings, setPublicListings] = useState<PlatformEquipment[]>([]);
   const [detailListings, setDetailListings] = useState<PlatformEquipment[]>([]);
   const [roleListings, setRoleListings] = useState<PlatformEquipment[]>([]);
@@ -448,7 +453,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const [bookings, setBookings] = useState<RentalBooking[]>([]);
   const [users, setUsers] = useState<PlatformUser[]>([]);
   const [publicReady, setPublicReady] = useState(false);
-  const [roleReady, setRoleReady] = useState(false);
+  const [roleDataLoading, setRoleDataLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [profileOverride, setProfileOverride] = useState<{
     userId: string;
@@ -472,7 +477,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const sessionUserPhone = sessionUser?.phone;
   const sessionUserAddress = sessionUser?.address;
 
-  const user = useMemo<PlatformUser | null>(() => {
+  const sessionPlatformUser = useMemo<PlatformUser | null>(() => {
     if (!userId || !sessionUserName || !sessionUserEmail) return null;
     return {
       id: userId,
@@ -482,10 +487,8 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       ...(sessionUserImage ? { image: sessionUserImage } : {}),
       ...(sessionUserPhone ? { phone: sessionUserPhone } : {}),
       ...(sessionUserAddress ? { address: sessionUserAddress } : {}),
-      ...(profileOverride?.userId === userId ? profileOverride.values : {}),
     };
   }, [
-    profileOverride,
     role,
     sessionUserAddress,
     sessionUserEmail,
@@ -494,6 +497,16 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     sessionUserPhone,
     userId,
   ]);
+
+  const user = useMemo<PlatformUser | null>(() => {
+    if (!sessionPlatformUser) return null;
+    return {
+      ...sessionPlatformUser,
+      ...(profileOverride?.userId === sessionPlatformUser.id
+        ? profileOverride.values
+        : {}),
+    };
+  }, [profileOverride, sessionPlatformUser]);
 
   const notify = useCallback(
     (message: string, tone: Toast["tone"] = "success") => {
@@ -524,7 +537,10 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
   const loadRoleData = useCallback(async () => {
     const requestId = ++roleRequest.current;
 
-    if (authPending) return;
+    if (authPending) {
+      setRoleDataLoading(false);
+      return;
+    }
 
     if (!userId) {
       setDetailListings([]);
@@ -537,7 +553,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setAnalytics({});
       setDashboardPages({});
       setProfileOverride(null);
-      setRoleReady(true);
+      setRoleDataLoading(false);
       return;
     }
 
@@ -553,11 +569,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       pathname === "/payment-cancel";
     const needProfile = dashboardRoute || pathname === "/profile";
     if (!needFavorites && !needBookings && !needProfile) {
-      setRoleReady(true);
+      setRoleDataLoading(false);
       return;
     }
 
-    setRoleReady(false);
+    setRoleDataLoading(true);
     try {
       if (role === "customer") {
         const [favoriteResult, bookingResult, overviewResult, profileResult] = await Promise.all([
@@ -580,7 +596,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           }
         }
         if (bookingResult) {
-          setBookings(bookingResult.data.map((booking) => mapBooking(booking, { user })));
+          setBookings(bookingResult.data.map((booking) =>
+            mapBooking(booking, { user: sessionPlatformUser }),
+          ));
           if (bookingResult.pagination) {
             setDashboardPages((current) => ({
               ...current,
@@ -615,9 +633,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
           if (requestId !== roleRequest.current) return;
           setRoleListings(equipmentResult.data.map((item) => mapEquipment(item, {
             ownerId: userId,
-            ownerName: sessionUser?.name ?? "VaraX owner",
+            ownerName: sessionPlatformUser?.name ?? "VaraX owner",
           })));
-          setBookings(bookingResult.data.map((booking) => mapBooking(booking, { user })));
+          setBookings(bookingResult.data.map((booking) =>
+            mapBooking(booking, { user: sessionPlatformUser }),
+          ));
           setDashboardPages((current) => ({
             ...current,
             ...(equipmentResult.pagination ? { equipment: equipmentResult.pagination } : {}),
@@ -649,7 +669,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         }
       } else {
         if (!dashboardRoute && !needProfile) {
-          setRoleReady(true);
+          setRoleDataLoading(false);
           return;
         }
         const [
@@ -685,7 +705,9 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
         if (requestId !== roleRequest.current) return;
         if (dashboardRoute && equipmentResult && bookingResult && userResult && overviewResult && analyticsResult && bookingAnalyticsResult && revenueAnalyticsResult) {
           setRoleListings(equipmentResult.data.map((item) => mapEquipment(item)));
-          setBookings(bookingResult.data.map((booking) => mapBooking(booking, { user })));
+          setBookings(bookingResult.data.map((booking) =>
+            mapBooking(booking, { user: sessionPlatformUser }),
+          ));
           setUsers(userResult.data.map(mapUser));
           setDashboardPages((current) => ({
             ...current,
@@ -717,15 +739,11 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       setOverview({});
       setAnalytics({});
     } finally {
-      if (requestId === roleRequest.current) setRoleReady(true);
+      if (requestId === roleRequest.current) setRoleDataLoading(false);
     }
-  }, [authPending, pathname, role, sessionUser?.name, userId, user]);
+  }, [authPending, pathname, role, sessionPlatformUser, userId]);
 
   useEffect(() => {
-    const needsPublicEquipment =
-      pathname === "/" ||
-      pathname === "/equipment" ||
-      pathname.startsWith("/equipment/");
     const timer = window.setTimeout(() => {
       if (needsPublicEquipment) {
         void loadPublic();
@@ -734,7 +752,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [loadPublic, pathname]);
+  }, [loadPublic, needsPublicEquipment]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void loadRoleData(), 0);
@@ -1164,11 +1182,12 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     return [...merged.values()];
   }, [publicListings, detailListings, roleListings, user]);
 
-  const ready = publicReady && !authPending && roleReady;
+  const ready = (!needsPublicEquipment || publicReady) && !authPending;
 
   const value = useMemo<PlatformContextValue>(
     () => ({
       ready,
+      roleDataLoading,
       user,
       users,
       listings,
@@ -1204,6 +1223,7 @@ export function PlatformProvider({ children }: { children: ReactNode }) {
     }),
     [
       ready,
+      roleDataLoading,
       user,
       users,
       listings,

@@ -123,7 +123,7 @@ export default function AuthScreen({
 
     if (role === "customer") {
       return callbackURL === "/" || isDashboardCallback
-        ? "/equipment"
+        ? "/"
         : callbackURL;
     }
 
@@ -144,7 +144,7 @@ export default function AuthScreen({
         callbackURL:
           requestedCallbackURL === "/"
             ? mode === "register"
-              ? "/equipment"
+              ? "/"
               : "/dashboard"
             : requestedCallbackURL,
       });
@@ -204,7 +204,9 @@ export default function AuthScreen({
       if (result.error) throw result.error;
       const role = getPlatformRole(result.data?.user?.role);
       notify("Welcome back to VaraX.", "success");
-      router.replace(getSuccessURL(role));
+      router.replace(
+        role === "customer" ? "/" : `/dashboard/${role}`,
+      );
     } catch (error) {
       setSignInMessage(
         getAuthErrorMessage(

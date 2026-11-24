@@ -220,6 +220,7 @@ export default function DashboardWorkspace({
     analytics,
     dashboardPages,
     loadDashboardPage,
+    roleDataLoading,
     loadError,
     refresh,
     toggleFavorite,
@@ -670,6 +671,17 @@ export default function DashboardWorkspace({
             <div><p className={styles.breadcrumb}>Workspace <span>/</span> {activeLabel}</p><h1>{activeLabel}</h1><p className={styles.welcomeCopy}>Welcome back, {user.name.split(" ")[0]}.</p></div>
             <Link className={styles.topProfile} href="/dashboard/profile">{user.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</Link>
           </header>
+          {roleDataLoading ? (
+            <p className={styles.dataLoadingNotice} role="status">
+              Loading workspace data…
+            </p>
+          ) : null}
+          {loadError && activeSection !== "overview" && activeSection !== "users" ? (
+            <div className={styles.dataLoadingNotice} role="alert">
+              <span>{loadError}</span>
+              <button type="button" onClick={() => void refresh()}>Retry</button>
+            </div>
+          ) : null}
           {renderContent()}
           <footer className={styles.workspaceFooter}><span>© 2026 VaraX</span><span>Connected to your VaraX account</span></footer>
         </div>

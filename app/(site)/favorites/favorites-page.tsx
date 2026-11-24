@@ -27,6 +27,7 @@ export default function FavoritesPage() {
   const {
     ready,
     user,
+    roleDataLoading,
     favoriteListings,
     dashboardPages,
     loadDashboardPage,
@@ -62,7 +63,9 @@ export default function FavoritesPage() {
     }
   }
 
-  if (!ready || !user) return <main className={styles.favoritesPage}><p>Loading your favorites…</p></main>;
+  if (!ready || !user || roleDataLoading) {
+    return <main className={styles.favoritesPage}><p>Loading your favorites…</p></main>;
+  }
 
   return (
     <main className={styles.favoritesPage}>

@@ -229,6 +229,31 @@
   margin-bottom: 0.25rem;
 }
 
+.dataLoadingNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgb(27 133 112 / 18%);
+  border-radius: 0.7rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  background: #e8f4f1;
+  color: #275b52;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.dataLoadingNotice button {
+  flex: 0 0 auto;
+  border: 0;
+  background: transparent;
+  color: #116b59;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .workspaceTopbar h1 {
   margin: 0;
   color: #172633;

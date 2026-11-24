@@ -11,7 +11,11 @@ export default function DashboardEntry() {
   const { ready, user } = usePlatform();
 
   useEffect(() => {
-    if (ready && user) router.replace(`/dashboard/${user.role}`);
+    if (ready && user) {
+      router.replace(
+        user.role === "customer" ? "/" : `/dashboard/${user.role}`,
+      );
+    }
   }, [ready, router, user]);
 
   if (!ready || user) {

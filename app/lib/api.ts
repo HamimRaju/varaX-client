@@ -46,7 +46,10 @@ type RequestOptions = {
 };
 
 const TOKEN_LIFETIME_MS = 10 * 60 * 1000;
+const TOKEN_REQUEST_TIMEOUT_MS = 12_000;
+const API_REQUEST_TIMEOUT_MS = 15_000;
 let cachedToken: { value: string; expiresAt: number } | null = null;
+let tokenRequest: Promise<string> | null = null;
 
 async function accessToken(forceRefresh = false): Promise<string> {
   if (
@@ -57,13 +60,35 @@ async function accessToken(forceRefresh = false): Promise<string> {
     return cachedToken.value;
   }
 
-  const token = await getBackendAccessToken();
-  cachedToken = { value: token, expiresAt: Date.now() + TOKEN_LIFETIME_MS };
-  return token;
+  if (tokenRequest) return tokenRequest;
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<string>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new ApiError("Your sign-in session timed out. Please try again.", 0)),
+      TOKEN_REQUEST_TIMEOUT_MS,
+    );
+  });
+  const pendingRequest = Promise.race([getBackendAccessToken(), timeout])
+    .then((token) => {
+      cachedToken = { value: token, expiresAt: Date.now() + TOKEN_LIFETIME_MS };
+      return token;
+    })
+    .finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+    });
+  tokenRequest = pendingRequest;
+
+  try {
+    return await pendingRequest;
+  } finally {
+    if (tokenRequest === pendingRequest) tokenRequest = null;
+  }
 }
 
 export function clearAccessToken(): void {
   cachedToken = null;
+  tokenRequest = null;
 }
 
 async function request<T>(
@@ -78,6 +103,19 @@ async function request<T>(
     );
   }
 
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, API_REQUEST_TIMEOUT_MS);
+  const abortFromCaller = () => controller.abort(signal?.reason);
+  if (signal?.aborted) {
+    abortFromCaller();
+  } else {
+    signal?.addEventListener("abort", abortFromCaller, { once: true });
+  }
+
   async function send(forceToken: boolean): Promise<Response> {
     const headers: Record<string, string> = { Accept: "application/json" };
     if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -88,29 +126,39 @@ async function request<T>(
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal,
+      signal: controller.signal,
       cache: "no-store",
     });
   }
 
-  let response = await send(false);
-  if (response.status === 401 && auth) {
-    cachedToken = null;
-    response = await send(true);
+  try {
+    let response = await send(false);
+    if (response.status === 401 && auth) {
+      cachedToken = null;
+      response = await send(true);
+    }
+
+    const payload = (await response.json().catch(() => null)) as
+      | (ApiEnvelope<T> & { message?: string })
+      | null;
+
+    if (!response.ok || !payload?.success) {
+      throw new ApiError(
+        payload?.message || `The server rejected the request (${response.status}).`,
+        response.status,
+      );
+    }
+
+    return payload;
+  } catch (error) {
+    if (timedOut) {
+      throw new ApiError("The API server took too long to respond. Please retry.", 0);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abortFromCaller);
   }
-
-  const payload = (await response.json().catch(() => null)) as
-    | (ApiEnvelope<T> & { message?: string })
-    | null;
-
-  if (!response.ok || !payload?.success) {
-    throw new ApiError(
-      payload?.message || `The server rejected the request (${response.status}).`,
-      response.status,
-    );
-  }
-
-  return payload;
 }
 
 function queryString(
