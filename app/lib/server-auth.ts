@@ -18,11 +18,6 @@ export async function requireSession(
   }
 
   const role = normalizeRole(session.user.role);
-  const isDashboardRoute = /^\/dashboard(?:\/|[?#]|$)/.test(callbackURL);
-  if (isDashboardRoute && role === "customer") {
-    redirect("/equipment");
-  }
-
   if (requiredRole && role !== requiredRole) {
     redirect(role === "customer" ? "/equipment" : `/dashboard/${role}`);
   }
